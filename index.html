@@ -1,28 +1,572 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<meta charset="utf-8">
 <script>
-/* 로컬 실행용 저장소(shim): claude.ai 밖에서 열 때만 동작. 데이터는 이 브라우저(localStorage)에만 저장됩니다. */
+/* 저장소(shim): claude.ai 밖에서 열 때만 동작.
+   FB에 Firebase 설정을 넣으면 Firestore에 저장(여러 사람 실시간 공유),
+   비워 두면 이 브라우저(localStorage)에만 저장됩니다. */
 (function(){
  if(window.claude&&window.claude.use)return;
- var KEY="yonsei_portal_db_v1",SEED={},store={},subs=[],n=0;
- try{var raw=localStorage.getItem(KEY);store=raw?JSON.parse(raw):null}catch(e){store=null}
- if(!store){store={};Object.keys(SEED).forEach(function(c){Object.keys(SEED[c]).forEach(function(id){store[c+"/"+id]=SEED[c][id]})});persist()}
- function persist(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
- function clone(o){return JSON.parse(JSON.stringify(o))}
- function dsnap(p){return{id:p.split("/").pop(),exists:!!store[p],data:function(){return store[p]?Object.freeze(clone(store[p])):undefined}}}
- function csnap(c){var docs=Object.keys(store).filter(function(p){return p.indexOf(c+"/")===0&&p.split("/").length===2}).map(dsnap);return{docs:docs,size:docs.length}}
- function note(p){persist();var c=p.split("/")[0];subs.forEach(function(s){try{s.cb(s.doc?dsnap(s.doc):csnap(s.col))}catch(e){}})}
- function dref(p){return{set:async function(d){store[p]=clone(d);note(p)},delete:async function(){delete store[p];note(p)},onSnapshot:function(cb){subs.push({col:p.split("/")[0],doc:p,cb:cb});setTimeout(function(){cb(dsnap(p))},0);return function(){}}}}
- var db={doc:dref,collection:function(c){return{add:async function(d){var id="l"+Date.now().toString(36)+(++n);store[c+"/"+id]=clone(d);note(c+"/"+id);return dref(c+"/"+id)},onSnapshot:function(cb){subs.push({col:c,cb:cb});setTimeout(function(){cb(csnap(c))},0);return function(){}}}}};
+ var FB={
+  apiKey:"AIzaSyCyiOdByojO__mmGUZYy_jnyZ17cZ7zuk8",
+  authDomain:"yonsei-portal.firebaseapp.com",
+  projectId:"yonsei-portal",
+  appId:"1:24786821212:web:733e9abc1a74fde51f0699"
+ };
+ var SEED={
+ "run_cur": {
+  "D": {
+   "_mi": 3,
+   "adj": null,
+   "item": "코스트코 락토프리",
+   "note": "생산 전 과산화수소 Bath 온도 낮음 알람 다수 발생 및 Aseptic Tank 30% 채우고 생산",
+   "plan": 263158,
+   "rate": 26500,
+   "recipe": "HI",
+   "start": 1793577120000,
+   "stops": [
+    [
+     1793579400000,
+     1793579640000
+    ],
+    [
+     1793580120000,
+     1793580360000
+    ],
+    [
+     1793581980000,
+     1793582400000
+    ],
+    [
+     1793597820000,
+     1793599260000
+    ]
+   ]
+  },
+  "F": {
+   "_mi": 5,
+   "adj": null,
+   "item": "고소한 콩&칼",
+   "note": "",
+   "plan": 526316,
+   "rate": 40000,
+   "recipe": "HI",
+   "start": 1793579520000,
+   "stops": [
+    [
+     1793580060000,
+     1793581020000
+    ],
+    [
+     1793586540000,
+     1793587020000
+    ]
+   ]
+  },
+  "B": {
+   "_mi": 1,
+   "adj": null,
+   "item": "이롬 국산콩 우리땅 17곡 2003G",
+   "note": "F.F Swing Frame Belt 교체",
+   "plan": 186490,
+   "rate": 24000,
+   "recipe": "HI",
+   "start": 1793581380000,
+   "stops": [
+    [
+     1793581980000,
+     1793583780000
+    ],
+    [
+     1793584740000,
+     1793585760000
+    ],
+    [
+     1793587200000,
+     1793587920000
+    ],
+    [
+     1793588520000,
+     1793588880000
+    ],
+    [
+     1793591460000,
+     1793591760000
+    ],
+    [
+     1793593320000,
+     1793596020000
+    ]
+   ]
+  },
+  "A": {
+   "_mi": 0,
+   "adj": null,
+   "item": "190 연세 멸균유",
+   "note": "",
+   "plan": 300000,
+   "rate": 24000,
+   "recipe": "",
+   "start": 1793577480000,
+   "stops": [
+    [
+     1793577780000,
+     1793578140000
+    ],
+    [
+     1793585400000,
+     1793585700000
+    ],
+    [
+     1793586360000,
+     1793586540000
+    ],
+    [
+     1793587080000,
+     1793587320000
+    ],
+    [
+     1793588520000,
+     1793588760000
+    ],
+    [
+     1793592240000,
+     1793592420000
+    ],
+    [
+     1793595000000,
+     1793595180000
+    ],
+    [
+     1793597400000,
+     1793597640000
+    ]
+   ]
+  }
+ },
+ "runs_log": {
+  "A_1793367540000": {
+   "actual": true,
+   "end": 1793367540000,
+   "item": "이롬 약콩 블랙오곡 2403 온A",
+   "mi": 0,
+   "plan": 275398,
+   "produced": 281880,
+   "rate": 24000,
+   "start": 1793321160000,
+   "stopMin": 0
+  },
+  "F_1793372700000": {
+   "actual": true,
+   "end": 1793372700000,
+   "item": "뼈생각 진득찰 호두&아몬드",
+   "mi": 5,
+   "plan": 530396,
+   "produced": 538848,
+   "rate": 40000,
+   "start": 1793320560000,
+   "stopMin": 0
+  },
+  "E_1793374620000": {
+   "actual": true,
+   "end": 1793374620000,
+   "item": "당백차",
+   "mi": 4,
+   "plan": 170916,
+   "produced": 168208,
+   "rate": 24000,
+   "start": 1793327340000,
+   "stopMin": 0
+  },
+  "D_1793362860000": {
+   "actual": true,
+   "end": 1793362860000,
+   "item": "파스퇴르 딸기",
+   "mi": 3,
+   "plan": 297354,
+   "produced": 294744,
+   "rate": 26500,
+   "start": 1793321160000,
+   "stopMin": 0
+  },
+  "B_1793367480000": {
+   "actual": true,
+   "end": 1793367480000,
+   "item": "건국 멸균유",
+   "mi": 1,
+   "plan": 300000,
+   "produced": 307848,
+   "rate": 24000,
+   "start": 1793318820000,
+   "stopMin": 0
+  }
+ },
+ "maint": {
+  "E_20261102": {
+   "from": "2026-11-02",
+   "mi": 4,
+   "note": "6K 예방정비",
+   "to": "2026-11-04",
+   "ts": 1793582300000
+  }
+ },
+ "stops_log": {
+  "1rj0mf6gbicshd8wr0o9": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793586540000,
+   "en": "11:29",
+   "eq": "Traypacker",
+   "loc": "Tray Blank",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 3,
+   "prob": "Tray 진입불량",
+   "sMs": 1793586360000,
+   "st": "11:26",
+   "ts": 1793592663811
+  },
+  "x3e14wmdaejotmkmscd1": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793583780000,
+   "en": "10:43",
+   "eq": "선물포장기",
+   "loc": "선물포장기",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 30,
+   "prob": "",
+   "sMs": 1793581980000,
+   "st": "10:13",
+   "ts": 1793584609977
+  },
+  "4xl3ixq5thbs1rziyder": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793587920000,
+   "en": "11:52",
+   "eq": "선물포장기",
+   "loc": "-",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 12,
+   "prob": "",
+   "sMs": 1793587200000,
+   "st": "11:40",
+   "ts": 1793592794765
+  },
+  "phe4frcnkn071l2en2v6": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793597640000,
+   "en": "14:34",
+   "eq": "제품적재로봇",
+   "loc": "-",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 4,
+   "prob": "",
+   "sMs": 1793597400000,
+   "st": "14:30",
+   "ts": 1793599186467
+  },
+  "z081tx96qgxoxq15smud": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793585700000,
+   "en": "11:15",
+   "eq": "제품적재로봇",
+   "loc": "적재불량",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 5,
+   "prob": "",
+   "sMs": 1793585400000,
+   "st": "11:10",
+   "ts": 1793592541104
+  },
+  "szx1y2xfqtbi4w3olh33": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793582400000,
+   "en": "10:20",
+   "eq": "CBP-30",
+   "loc": "Divider",
+   "mc": "D호기",
+   "mi": 3,
+   "min": 7,
+   "prob": "알람 연속적으로 발생",
+   "sMs": 1793581980000,
+   "st": "10:13",
+   "ts": 1793583116709
+  },
+  "2nwb9n7c9iqc9qsvictl": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793578140000,
+   "en": "09:09",
+   "eq": "Traypacker",
+   "loc": "Hotmelt Unit",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 6,
+   "prob": "온도 떨어짐",
+   "sMs": 1793577780000,
+   "st": "09:03",
+   "ts": 1793584346537
+  },
+  "x93qswm09daonvdmq5v4": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793587020000,
+   "en": "11:37",
+   "eq": "전처리",
+   "loc": "유액부족대기",
+   "mc": "F호기",
+   "mi": 5,
+   "min": 8,
+   "prob": "",
+   "sMs": 1793586540000,
+   "st": "11:29",
+   "ts": 1793587100193
+  },
+  "y2sg1twu80eu2156tva6": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793579640000,
+   "en": "09:34",
+   "eq": "Helix",
+   "loc": "스파이더",
+   "mc": "D호기",
+   "mi": 3,
+   "min": 4,
+   "prob": "스파이더 Jam 발생",
+   "sMs": 1793579400000,
+   "st": "09:30",
+   "ts": 1793582952293
+  },
+  "sqbnqc4ktej52ivtizre": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793585760000,
+   "en": "11:16",
+   "eq": "선물포장기",
+   "loc": "-",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 17,
+   "prob": "",
+   "sMs": 1793584740000,
+   "st": "10:59",
+   "ts": 1793592779981
+  },
+  "rysvzkj5h7esx2oioea9": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793592420000,
+   "en": "13:07",
+   "eq": "제품적재로봇",
+   "loc": "적재불량",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 3,
+   "prob": "",
+   "sMs": 1793592240000,
+   "st": "13:04",
+   "ts": 1793592739832
+  },
+  "qf6e4g768230rj4eyvt3": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793587320000,
+   "en": "11:42",
+   "eq": "FilmLine",
+   "loc": "수출터널",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 4,
+   "prob": "온도 떨어짐",
+   "sMs": 1793587080000,
+   "st": "11:38",
+   "ts": 1793592702337
+  },
+  "y8f142j6zy4wd4o3mtor": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793581020000,
+   "en": "09:57",
+   "eq": "제품적재로봇",
+   "loc": "적재로봇트",
+   "mc": "F호기",
+   "mi": 5,
+   "min": 16,
+   "prob": "적재 불량..CBP30S 팩터짐",
+   "sMs": 1793580060000,
+   "st": "09:41",
+   "ts": 1793581851954
+  },
+  "o1awkwl7hzrauwnm37vb": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793580360000,
+   "en": "09:46",
+   "eq": "A3/Speed",
+   "loc": "과산화수소 시스템",
+   "mc": "D호기",
+   "mi": 3,
+   "min": 4,
+   "prob": "과산화수소 보충 오작동",
+   "sMs": 1793580120000,
+   "st": "09:42",
+   "ts": 1793583012396
+  },
+  "tmbf78vbgmdr1u3fhn2o": {
+   "act": "CBP30 알람 조치 후 A3/Speed 엔지니어 조정 정비",
+   "date": "2026-11-02",
+   "eMs": 1793599260000,
+   "en": "15:01",
+   "eq": "CBP-30",
+   "loc": "-",
+   "mc": "D호기",
+   "mi": 3,
+   "min": 24,
+   "prob": "",
+   "sMs": 1793597820000,
+   "st": "14:37",
+   "ts": 1793599422748
+  },
+  "b0ho3zcq90rclrt3twj6": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793591760000,
+   "en": "12:56",
+   "eq": "선물포장기",
+   "loc": "-",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 5,
+   "prob": "",
+   "sMs": 1793591460000,
+   "st": "12:51",
+   "ts": 1793592819649
+  },
+  "yt6ou36b16itpmtgpbng": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793588760000,
+   "en": "12:06",
+   "eq": "제품적재로봇",
+   "loc": "적재불량",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 4,
+   "prob": "",
+   "sMs": 1793588520000,
+   "st": "12:02",
+   "ts": 1793592721696
+  },
+  "gf4ansagay7gwc9jhg53": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793596020000,
+   "en": "14:07",
+   "eq": "전처리",
+   "loc": "유액부족대기",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 45,
+   "prob": "",
+   "sMs": 1793593320000,
+   "st": "13:22",
+   "ts": 1793599230435
+  },
+  "vo6yc178q3jsjthtqs9h": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793595180000,
+   "en": "13:53",
+   "eq": "제품적재로봇",
+   "loc": "-",
+   "mc": "A호기",
+   "mi": 0,
+   "min": 3,
+   "prob": "",
+   "sMs": 1793595000000,
+   "st": "13:50",
+   "ts": 1793599170671
+  },
+  "5boc3e1fm6torscc17s4": {
+   "act": "",
+   "date": "2026-11-02",
+   "eMs": 1793588880000,
+   "en": "12:08",
+   "eq": "선물포장기",
+   "loc": "-",
+   "mc": "B호기",
+   "mi": 1,
+   "min": 6,
+   "prob": "",
+   "sMs": 1793588520000,
+   "st": "12:02",
+   "ts": 1793592806501
+  }
+ },
+ "speed_log": {},
+ "run_open": {}
+};
+ var COLS=["run_cur","run_open","runs_log","stops_log","maint","speed_log"];
+
+ /* 로컬 저장: 이 브라우저에만 */
+ function local(){
+  var KEY="yonsei_portal_db_v1",store=null,subs=[],n=0;
+  try{var raw=localStorage.getItem(KEY);store=raw?JSON.parse(raw):null}catch(e){store=null}
+  if(!store){store={};Object.keys(SEED).forEach(function(c){Object.keys(SEED[c]).forEach(function(id){store[c+"/"+id]=SEED[c][id]})});persist()}
+  function persist(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
+  function clone(o){return JSON.parse(JSON.stringify(o))}
+  function dsnap(p){return{id:p.split("/").pop(),exists:!!store[p],data:function(){return store[p]?Object.freeze(clone(store[p])):undefined}}}
+  function csnap(c){var docs=Object.keys(store).filter(function(p){return p.indexOf(c+"/")===0&&p.split("/").length===2}).map(dsnap);return{docs:docs,size:docs.length}}
+  function note(){persist();subs.forEach(function(s){try{s.cb(s.doc?dsnap(s.doc):csnap(s.col))}catch(e){}})}
+  function dref(p){return{set:async function(d){store[p]=clone(d);note()},delete:async function(){delete store[p];note()},onSnapshot:function(cb){subs.push({col:p.split("/")[0],doc:p,cb:cb});setTimeout(function(){cb(dsnap(p))},0);return function(){}}}}
+  return{doc:dref,collection:function(c){return{add:async function(d){var id="l"+Date.now().toString(36)+(++n);store[c+"/"+id]=clone(d);note();return dref(c+"/"+id)},onSnapshot:function(cb){subs.push({col:c,cb:cb});setTimeout(function(){cb(csnap(c))},0);return function(){}}}}};
+ }
+
+ /* Firestore: 여러 사람 공유. Firestore는 배열 안의 배열(stops)을 못 넣으므로 문서를 {j:JSON 문자열}로 저장 */
+ function fire(){
+  var B="https://www.gstatic.com/firebasejs/10.12.2/";
+  function load(s){return new Promise(function(ok,no){var e=document.createElement("script");e.src=B+s;e.onload=ok;e.onerror=no;document.head.appendChild(e)})}
+  return load("firebase-app-compat.js").then(function(){return load("firebase-firestore-compat.js")}).then(function(){
+   var fs=firebase.initializeApp(FB).firestore();
+   function enc(d){return{j:JSON.stringify(d),ts:Date.now()}}
+   function dec(s){var v=s.data();try{return v&&typeof v.j==="string"?JSON.parse(v.j):v}catch(e){return v}}
+   function wrap(s){return{id:s.id,exists:s.exists,data:function(){return s.exists?Object.freeze(dec(s)):undefined}}}
+   var db={
+    doc:function(p){var r=fs.doc(p);return{set:function(d){return r.set(enc(d))},delete:function(){return r.delete()},onSnapshot:function(cb,er){return r.onSnapshot(function(s){cb(wrap(s))},er)}}},
+    collection:function(c){var r=fs.collection(c);return{add:function(d){return r.add(enc(d)).then(function(x){return db.doc(c+"/"+x.id)})},onSnapshot:function(cb,er){return r.onSnapshot(function(q){var docs=q.docs.map(wrap);cb({docs:docs,size:docs.length})},er)}}}
+   };
+   /* 최초 1회: 백업 기록(portal-data-backup.json)을 넣음 */
+   var m=fs.doc("_meta/seed");
+   return m.get().then(function(s){
+    if(s.exists)return db;
+    var b=fs.batch();
+    COLS.forEach(function(c){Object.keys(SEED[c]||{}).forEach(function(id){b.set(fs.doc(c+"/"+id),enc(SEED[c][id]))})});
+    b.set(m,{at:Date.now()});
+    return b.commit().then(function(){return db});
+   });
+  });
+ }
+
+ var dbp=null;
  window.claude={use:async function(k){
-  if(k==="db")return db;
+  if(k==="db"){
+   if(!dbp)dbp=FB.projectId?fire().catch(function(e){console.error("Firebase 연결 실패: 입력은 읽기 전용이 됩니다.",e);return null}):Promise.resolve(local());
+   return dbp}
   if(k==="user")return{can:function(){return true}};
   if(k==="downloads")return{save:async function(r){var u=URL.createObjectURL(r.data),a=document.createElement("a");a.href=u;a.download=r.filename;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},1000)}};
   return null}};
 })();
 </script>
-<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>연세유업 상온제품포장팀 업무 포털</title>
