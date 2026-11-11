@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<meta charset="utf-8">
 <script>
 /* 저장소(shim): claude.ai 밖에서 열 때만 동작.
    FB에 Firebase 설정을 넣으면 Firestore에 저장(여러 사람 실시간 공유),
-   비워 두면 이 브라우저(localStorage)에만 저장됩니다. */
+   비워 두면 이 브라우저(localStorage)에만 저장됩니다.
+   아티팩트 버전에서 index.html을 다시 만들 때는 이 <script> 블록만 그대로 두고 아래를 바꾸면 됩니다. */
 (function(){
  if(window.claude&&window.claude.use)return;
  var FB={
@@ -515,44 +517,79 @@
  "speed_log": {},
  "run_open": {}
 };
- var COLS=["run_cur","run_open","runs_log","stops_log","maint","speed_log"];
 
- /* 로컬 저장: 이 브라우저에만 */
+ var SEED2={"hours":{"A":{"at":1793926696225,"base":26659,"mi":0,"ts":1793926696225},"B":{"at":1793926704511,"base":44422,"mi":1,"ts":1793926704511},"D":{"at":1793926714309,"base":37141,"mi":3,"ts":1793926714309},"E":{"at":1793926687192,"base":6017,"mi":4,"ts":1793926687192},"F":{"at":1793926724633,"base":7505,"mi":5,"ts":1793926724633}},"part_changes":{"0wzz7ij2sw6pfu03zr2e":{"date":"2026-11-02","eq":"A3/Speed","mc":"B호기","name":"Timing Belt","no":"90600-2816","note":"F.F Swing Frame_끊어짐 교체","qty":1,"ts":1793765787568,"who":"박재현"},"4ut3yluso830dgzvdn25":{"date":"2026-11-03","eq":"A3/Speed","mc":"B호기","name":"Plate","no":"2898561-0000","note":"F.F Swing Frame-노후화 교체","qty":4,"ts":1793765461978,"who":"박재현"},"bmc3kdv1okee2mmb8cxk":{"date":"2026-11-03","eq":"A3/Speed","mc":"B호기","name":"Radial Seal","no":"90091-0148","note":"F.F Swing Frame_교체","qty":2,"ts":1793765634608,"who":"박재현"},"d32hhvzuxxvlk9f5g8wl":{"date":"2026-11-04","eq":"CBP","mc":"D호기","name":"Timing Belt","no":"90600-5695","note":"벨트 노후화로 교체","qty":1,"ts":1793765117818,"who":"박재현"},"k6l5bfjsryd09ipupdy2":{"date":"2026-11-03","eq":"A3/Speed","mc":"B호기","name":"Ball Bearing","no":"351877-6005","note":"F.F Swing Frame_교체","qty":2,"ts":1793765549392,"who":"박재현"},"pc_20261106_29682600000":{"date":"2026-11-06","eq":"A3/Speed","mc":"D호기","name":"Level Probe","no":"2968260-0000","note":"어제 Filling Not Ok(플루트 헌팅발생) Chute 팩 많이 발생하여 교체","qty":1,"ts":1793934000000,"who":"박재현"},"pc_20261110_906032434":{"date":"2026-11-10","eq":"CBP","mc":"F호기","name":"Megazine Unit_Feeder Drive Unit","no":"90603-2434","note":"motor 고장으로 교체","qty":1,"ts":1794279600000,"who":"박재현"},"pc_20261111_906099752":{"date":"2026-11-11","eq":"A3/Speed","mc":"D호기","name":"Control Relay,180-280V AC 4A","no":"90609-9752","note":"Service Unit 400V 알람 발생","qty":1,"ts":1794366000000,"who":"박재현"},"ppq1d5f2dcgi7hh5ys66":{"date":"2026-11-04","eq":"CBP","mc":"D호기","name":"Ball Bearing","no":"90603-3539","note":"","qty":8,"ts":1793765173198,"who":"박재현"},"reeax2it0s8g90kgcof5":{"date":"2026-11-04","eq":"CBP","mc":"D호기","name":"Ring,EPDM","no":"90459-0224","note":"노후화 교체","qty":8,"ts":1793765213216,"who":"박재현"},"vzcxz8fpkl8o6efetc12":{"date":"2026-11-03","eq":"A3/Speed","mc":"B호기","name":"Shaft","no":"2738152-0000","note":"F.F Swing Frame_교체","qty":1,"ts":1793765690162,"who":"박재현"},"w79nfjdx2yhce7wbw1sp":{"date":"2026-11-05","eq":"CFA1724-37","mc":"E호기","name":"Swivel Coupling Rod Gasket","no":"870123457","note":"Swivel Coupling 온도저하(스팀 멸균 시 스팀누출 발생)","qty":12,"ts":1793848690425,"who":"박재현"}}};
+ var COLS=["run_cur","run_open","runs_log","stops_log","maint","speed_log"];
+ function clone(o){return JSON.parse(JSON.stringify(o))}
+ function cmp(f,dir){return function(a,b){var x=a.v[f],y=b.v[f];var r=x<y?-1:x>y?1:0;return dir==="desc"?-r:r}}
+
+ /* 로컬 저장: 이 브라우저에만 (Firebase 설정이 비어 있을 때) */
  function local(){
   var KEY="yonsei_portal_db_v1",store=null,subs=[],n=0;
   try{var raw=localStorage.getItem(KEY);store=raw?JSON.parse(raw):null}catch(e){store=null}
-  if(!store){store={};Object.keys(SEED).forEach(function(c){Object.keys(SEED[c]).forEach(function(id){store[c+"/"+id]=SEED[c][id]})});persist()}
+  if(!store){store={};[SEED,SEED2].forEach(function(S){Object.keys(S).forEach(function(c){Object.keys(S[c]).forEach(function(id){store[c+"/"+id]=S[c][id]})})});persist()}
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
-  function clone(o){return JSON.parse(JSON.stringify(o))}
   function dsnap(p){return{id:p.split("/").pop(),exists:!!store[p],data:function(){return store[p]?Object.freeze(clone(store[p])):undefined}}}
-  function csnap(c){var docs=Object.keys(store).filter(function(p){return p.indexOf(c+"/")===0&&p.split("/").length===2}).map(dsnap);return{docs:docs,size:docs.length}}
-  function note(){persist();subs.forEach(function(s){try{s.cb(s.doc?dsnap(s.doc):csnap(s.col))}catch(e){}})}
-  function dref(p){return{set:async function(d){store[p]=clone(d);note()},delete:async function(){delete store[p];note()},onSnapshot:function(cb){subs.push({col:p.split("/")[0],doc:p,cb:cb});setTimeout(function(){cb(dsnap(p))},0);return function(){}}}}
-  return{doc:dref,collection:function(c){return{add:async function(d){var id="l"+Date.now().toString(36)+(++n);store[c+"/"+id]=clone(d);note();return dref(c+"/"+id)},onSnapshot:function(cb){subs.push({col:c,cb:cb});setTimeout(function(){cb(csnap(c))},0);return function(){}}}}};
+  function rows(c){return Object.keys(store).filter(function(p){return p.indexOf(c+"/")===0&&p.split("/").length===2}).map(function(p){return{p:p,v:store[p]}})}
+  function note(){persist();subs.forEach(function(s){try{s.fn()}catch(e){}})}
+  function dref(p){return{
+   set:async function(d){store[p]=clone(d);note()},
+   update:async function(d){store[p]=Object.assign({},store[p]||{},clone(d));note()},
+   delete:async function(){delete store[p];note()},
+   onSnapshot:function(cb){var s={fn:function(){cb(dsnap(p))}};subs.push(s);setTimeout(s.fn,0);return function(){subs.splice(subs.indexOf(s),1)}}}}
+  function query(c,o){var q={
+   orderBy:function(f,dir){return query(c,Object.assign({},o,{f:f,dir:dir}))},
+   limit:function(k){return query(c,Object.assign({},o,{k:k}))},
+   onSnapshot:function(cb){var s={fn:function(){var r=rows(c);if(o.f)r.sort(cmp(o.f,o.dir));if(o.k)r=r.slice(0,o.k);var docs=r.map(function(x){return dsnap(x.p)});cb({docs:docs,size:docs.length,empty:!docs.length})}};subs.push(s);setTimeout(s.fn,0);return function(){subs.splice(subs.indexOf(s),1)}}};return q}
+  return{doc:dref,collection:function(c){var q=query(c,{});q.doc=function(id){return dref(c+"/"+id)};q.add=async function(d){var id="l"+Date.now().toString(36)+(++n);store[c+"/"+id]=clone(d);note();return Object.assign(dref(c+"/"+id),{id:id})};return q}};
  }
 
- /* Firestore: 여러 사람 공유. Firestore는 배열 안의 배열(stops)을 못 넣으므로 문서를 {j:JSON 문자열}로 저장 */
+ /* Firestore: 여러 사람 공유. Firestore는 배열 안의 배열(stops)을 못 넣으므로 문서를 {j:JSON 문자열}로 저장.
+    정렬에 쓰는 at(시각)만 바깥에도 둠 */
  function fire(){
   var B="https://www.gstatic.com/firebasejs/10.12.2/";
   function load(s){return new Promise(function(ok,no){var e=document.createElement("script");e.src=B+s;e.onload=ok;e.onerror=no;document.head.appendChild(e)})}
   return load("firebase-app-compat.js").then(function(){return load("firebase-firestore-compat.js")}).then(function(){
    var fs=firebase.initializeApp(FB).firestore();
-   function enc(d){return{j:JSON.stringify(d),ts:Date.now()}}
+   function enc(d){var o={j:JSON.stringify(d),ts:Date.now()};if(d&&typeof d.at==="number"&&isFinite(d.at))o.at=Math.round(d.at);return o}
    function dec(s){var v=s.data();try{return v&&typeof v.j==="string"?JSON.parse(v.j):v}catch(e){return v}}
    function wrap(s){return{id:s.id,exists:s.exists,data:function(){return s.exists?Object.freeze(dec(s)):undefined}}}
-   var db={
-    doc:function(p){var r=fs.doc(p);return{set:function(d){return r.set(enc(d))},delete:function(){return r.delete()},onSnapshot:function(cb,er){return r.onSnapshot(function(s){cb(wrap(s))},er)}}},
-    collection:function(c){var r=fs.collection(c);return{add:function(d){return r.add(enc(d)).then(function(x){return db.doc(c+"/"+x.id)})},onSnapshot:function(cb,er){return r.onSnapshot(function(q){var docs=q.docs.map(wrap);cb({docs:docs,size:docs.length})},er)}}}
-   };
-   /* 최초 1회: 백업 기록(portal-data-backup.json)을 넣음 */
+   function qsnap(q){var docs=q.docs.map(wrap);return{docs:docs,size:docs.length,empty:!docs.length}}
+   function dref(p){var r=fs.doc(p);return{
+    set:function(d){return r.set(enc(d))},
+    update:function(d){return r.get().then(function(s){return r.set(enc(Object.assign({},s.exists?dec(s):{},d)))})},
+    delete:function(){return r.delete()},
+    onSnapshot:function(cb,er){return r.onSnapshot(function(s){cb(wrap(s))},er)}}}
+   function query(c,r){return{
+    orderBy:function(f,dir){return query(c,r.orderBy(f,dir))},
+    limit:function(k){return query(c,r.limit(k))},
+    onSnapshot:function(cb,er){return r.onSnapshot(function(q){cb(qsnap(q))},er)}}}
+   var db={doc:dref,collection:function(c){var r=fs.collection(c),q=query(c,r);
+    q.doc=function(id){return dref(c+"/"+id)};
+    q.add=function(d){return r.add(enc(d)).then(function(x){return Object.assign(dref(c+"/"+x.id),{id:x.id})})};
+    return q}};
+   /* 최초 1회: 11/2 백업 기록 */
    var m=fs.doc("_meta/seed");
    return m.get().then(function(s){
-    if(s.exists)return db;
+    if(s.exists)return;
     var b=fs.batch();
     COLS.forEach(function(c){Object.keys(SEED[c]||{}).forEach(function(id){b.set(fs.doc(c+"/"+id),enc(SEED[c][id]))})});
     b.set(m,{at:Date.now()});
-    return b.commit().then(function(){return db});
-   });
+    return b.commit();
+   }).then(function(){
+    /* 최초 1회: 새 기능 기록(누적 가동시간, 부품 교체 내역). 이미 있는 문서는 건드리지 않음 */
+    var m2=fs.doc("_meta/seed2");
+    return m2.get().then(function(s){
+     if(s.exists)return;
+     var list=[];Object.keys(SEED2).forEach(function(c){Object.keys(SEED2[c]).forEach(function(id){list.push([c,id])})});
+     return Promise.all(list.map(function(x){return fs.doc(x[0]+"/"+x[1]).get()})).then(function(ss){
+      var b=fs.batch();
+      ss.forEach(function(s,i){if(!s.exists)b.set(fs.doc(list[i][0]+"/"+list[i][1]),enc(SEED2[list[i][0]][list[i][1]]))});
+      b.set(m2,{at:Date.now()});
+      return b.commit();
+     });
+    });
+   }).catch(function(e){console.warn("초기 기록 넣기 건너뜀",e)}).then(function(){return db});
   });
  }
 
@@ -561,12 +598,11 @@
   if(k==="db"){
    if(!dbp)dbp=FB.projectId?fire().catch(function(e){console.error("Firebase 연결 실패: 입력은 읽기 전용이 됩니다.",e);return null}):Promise.resolve(local());
    return dbp}
-  if(k==="user")return{can:function(){return true}};
+  if(k==="user")return{can:async function(){return true}};
   if(k==="downloads")return{save:async function(r){var u=URL.createObjectURL(r.data),a=document.createElement("a");a.href=u;a.download=r.filename;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove()},1000)}};
   return null}};
 })();
 </script>
-<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>연세유업 상온제품포장팀 업무 포털</title>
@@ -709,6 +745,7 @@ svg .grid line{stroke:var(--line)}
 .mtn span{font-size:12px;color:var(--mute)}
 .mtn.on{background:var(--warn);border-right-color:var(--warn)}
 .mtn.on b,.mtn.on span{color:#fff}
+.who{display:block;color:var(--mute);font-size:11px;line-height:1.35;white-space:nowrap;margin-bottom:3px}
 @media (max-width:560px){h1{font-size:19px}.kpi .v{font-size:21px}}
 @media (prefers-reduced-motion:reduce){.mc{transition:none}}
 </style>
@@ -854,9 +891,12 @@ var GEV=[],STSHOW=15,PSHOW=15,GVSHOW=15,STDF="",STDT="";
 function moreBtn(k,shown,total){return shown>=total?'':'<div style="margin-top:6px"><button data-more="'+k+'">30건 더 보기</button> <button data-more="'+k+'all">전체 보기 ('+total+'건)</button> <span class="note">'+shown+' / '+total+'건 표시 중</span></div>'}
 var LEAD={},LEADD="";
 function leadBar(){var d=LEADD||(LEADD=dkey(Date.now()));return'<div class="card" id="leadbar" style="margin-bottom:12px;padding:10px 14px"><div class="bar" style="margin:0;align-items:flex-end"><b style="align-self:center">조장</b><label>일자<input type="date" id="ldd" value="'+d+'"></label><label>오전 조장<input id="lda" maxlength="20" placeholder="이름" style="width:110px"'+(RRO?" disabled":"")+'></label><label>오후 조장<input id="ldp" maxlength="20" placeholder="이름" style="width:110px"'+(RRO?" disabled":"")+'></label>'+(RRO?'':'<button class="pri" id="ldsv">저장</button>')+'<span id="ldmsg" class="note"></span></div><div id="ldshow" style="margin-top:6px;font-size:13px"></div></div>'}
-function ldPaint(){var e=$("ldshow");if(!e)return;var d=dkey(Date.now()),c=LEAD[d]||{},l=d.slice(5).replace("-","/");e.innerHTML=(c.am||c.pm)?"<b>금일("+l+") 조장</b> · 오전 <b>"+esc(c.am||"-")+"</b> · 오후 <b>"+esc(c.pm||"-")+"</b>":'<b>금일('+l+') 조장</b> · <span class="note">아직 입력되지 않았습니다</span>'}
+function ldLine(d,t){var c=LEAD[d]||{},l=d.slice(5).replace("-","/");return(c.am||c.pm)?"<b>"+t+"("+l+") 조장</b> · 오전 <b>"+esc(c.am||"-")+"</b> · 오후 <b>"+esc(c.pm||"-")+"</b>":'<b>'+t+'('+l+') 조장</b> · <span class="note">입력된 이름이 없습니다</span>'}
+function ldPaint(){var e=$("ldshow");if(!e)return;var d=dkey(Date.now()),s=$("ldd")&&$("ldd").value;e.innerHTML=ldLine(d,"금일")+(s&&s!==d?"<br>"+ldLine(s,"선택일"):"")}
 function leadLoad(){var d=$("ldd");if(!d)return;ldPaint();var c=LEAD[d.value]||{};[["lda",c.am],["ldp",c.pm]].forEach(function(z){var e=$(z[0]);if(e&&!e.dataset.dirty&&document.activeElement!==e&&e.value!==(z[1]||""))e.value=z[1]||""})}
-async function leadSave(){var d=$("ldd").value,m=$("ldmsg");if(!d){m.textContent="일자를 입력하세요.";return}var v={am:$("lda").value.trim().slice(0,20),pm:$("ldp").value.trim().slice(0,20)};
+async function leadSave(){var d=$("ldd").value,m=$("ldmsg");if(!d){m.textContent="일자를 입력하세요.";return}var v={am:$("lda").value.trim().slice(0,20),pm:$("ldp").value.trim().slice(0,20)},pv=LEAD[d]||{};
+ if(!v.am&&!v.pm&&!pv.am&&!pv.pm){m.textContent="조장 이름을 입력한 뒤 저장하세요.";return}
+ if(!v.am&&!v.pm&&!confirm(d+" 조장 이름을 모두 지울까요?"))return;
  try{await RDB.doc("crew/lead_"+d).set({date:d,kind:"lead",lead:v,ts:Date.now()});LEAD[d]=v;$("lda").dataset.dirty="";$("ldp").dataset.dirty="";ldPaint();m.textContent="저장했습니다."}catch(e){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
 var CREW={},CRN=[[2,1],[1,1],[1,1],[1,1],[2,1],[2,1]],CRD="",GCSHOW=15;
 function crId(d,i){return d+"_"+MC[i]}
@@ -939,7 +979,7 @@ function drFill(d){
    if(r.end){if(dkey(r.end)===d)L.push("-"+hm(r.start)+"~"+hm(r.end)+" 생산 종료");else{L.push("-"+hm(r.end)+" 생산 종료");cross=true;endHM=hm(r.end)}}
    if(r.note)L.push("-"+r.note)});
   var cu=RUNMAP[MC[i]];if(cu&&cu.start&&dkey(cu.start)===d){var ci=(cu.item||"").trim();if(ci)L.push("-"+ci+" 생산 중");L.push("-"+hm(cu.start)+" 생산 시작")}
-  var rows=stopsOf(i,num(d),num(d)).map(function(r){return{t:r.t||"",n:r.n||"",e:r.e,l:r.l,p:r.p,a:r.a,k:0}});
+  var rows=stopsOf(i,num(d),num(d)).map(function(r){var nx=r.sMs&&dkey(r.sMs)!==d;return{t:r.t||"",n:r.n||"",e:r.e,l:r.l,p:r.p,a:r.a,k:nx?1:0}});
   if(cross)stopsOf(i,num(drNext(d)),num(drNext(d))).forEach(function(r){if((r.t||"")<=endHM)rows.push({t:r.t||"",n:r.n||"",e:r.e,l:r.l,p:r.p,a:r.a,k:1})});
   SPDALL.forEach(function(x){if(x.mi===i&&(x.date===d||(cross&&x.date===drNext(d)&&(x.st||"")<=endHM)))rows.push({t:x.st||"",n:x.en||"",e:"",l:"",p:"속도 조정("+fmt(x.base||BASE)+"->"+fmt(x.spd)+") "+spcN(x.cause,i)+(x.ex?"":""),a:"",k:x.date===d?0:1})});
   rows.sort(function(p,q){return p.k-q.k||(p.t>q.t?1:p.t<q.t?-1:0)}).forEach(function(r){
@@ -1082,7 +1122,7 @@ function lpPage(k){
 function lpFill(){
  var k=(location.hash||"#home").slice(1),el=$("lptbl");if(!el||!(k==="maint-log"||LPC[k]))return;
  if(k==="maint-log"){var td=dkey(Date.now()),a=MAINT.filter(function(x){return LPF==="all"||MC[x.mi]===LPF}).sort(function(p,q){return p.from<q.from?1:-1});
-  el.innerHTML=a.length?'<div class="tw"><table><tr><th>호기</th><th>기간</th><th>내용</th><th>상태</th><th></th></tr>'+a.map(function(x){var st=x.from<=td&&td<=x.to?"정비 중":(x.from>td?"예정":"종료");return'<tr><td>'+MC[x.mi]+'호기</td><td>'+esc(x.from)+' ~ '+esc(x.to)+'</td><td><b style="color:var(--warn);font-size:15px">'+esc(x.note)+'</b></td><td>'+st+'</td><td>'+(RRO?"":'<button data-medit="'+esc(x._id)+'">수정</button> <button data-mdel="'+esc(x._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>':'<div class="empty">등록된 정비 이력이 없습니다.</div>';return}
+  el.innerHTML=a.length?'<div class="tw"><table><tr><th>호기</th><th>기간</th><th>내용</th><th>상태</th><th></th></tr>'+a.map(function(x){var st=x.from<=td&&td<=x.to?"정비 중":(x.from>td?"예정":"종료");return'<tr><td>'+MC[x.mi]+'호기</td><td>'+esc(x.from)+' ~ '+esc(x.to)+'</td><td><b style="color:var(--warn);font-size:15px">'+esc(x.note)+'</b></td><td>'+st+'</td><td>'+who(x)+(RRO?"":'<button data-medit="'+esc(x._id)+'">수정</button> <button data-mdel="'+esc(x._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>':'<div class="empty">등록된 정비 이력이 없습니다.</div>';return}
  var c=LPC[k],a=LPD[k].filter(function(x){return(LPF==="all"||x.mc===LPF)&&(k!=="pchg"||(LPE==="all"||x.eq===LPE)&&(!LPDF||(x.date||"")>=LPDF)&&(!LPDT||(x.date||"")<=LPDT))}).sort(c.sort);
  var sm=$("lpsum");if(sm)sm.textContent=k==="pchg"?((LPDF||LPDT?"기간 "+(LPDF||"처음")+" ~ "+(LPDT||"오늘")+" · ":"전체 기간 · ")+"교체 "+a.length+"건 · 수량 합계 "+fmt(a.reduce(function(t,x){return t+(+x.qty||0)},0))):"";
  var bn="";if(k==="pchg"&&!RRO){var ms=pchMissing();if(ms.length)bn='<div class="note" style="border:2px solid var(--warn);border-radius:8px;padding:8px 10px;margin:0 0 8px">11/2~11/5에 기록된 부품 교체 내역 '+ms.length+'건이 이 화면에 없습니다. <button class="pri" data-pchimp="1">가져오기</button> <span id="pchimsg"></span></div>'}
@@ -1182,13 +1222,14 @@ document.addEventListener("click",function(e){var t=e.target.closest&&e.target.c
   var n=Object.assign({},PST[id]||{});n.no=r.no;if(String(v[0])!==String(r.qty)){n.qty=v[0]===""?"":+v[0];n.qts=Date.now()}n.used=v[1]===""?"":(isNaN(+v[1])?v[1].slice(0,20):+v[1]);n.note=v[2].slice(0,120);n.ts=Date.now();
   try{await RDB.doc("part_stock/"+id).set(n)}catch(er){return"저장하지 못했습니다."}})});
 function route(){
- var hs=(location.hash||"#home").slice(1),main=$("main"),mtabs=[["home","전체 현황"],["daily","일일현황보고"],["maint-log","정비 이력"],["pm","예방정비"],["stops","정지 이력"],["parts","부품 재고"],["pchg","부품 교체 내역"],["pcyc","부품 교체 주기"],["links","바로가기"]],tabs=mtabs.concat(MC.map(function(n,i){return["mc-"+n.toLowerCase(),n+"호기",i]}));
+ var hs=(location.hash||"#home").slice(1),main=$("main"),mtabs=[["home","전체 현황"],["daily","일일현황보고"],["maint-log","정비 이력"],["pm","예방정비"],["stops","정지 이력"],["edits","수정 이력"],["parts","부품 재고"],["pchg","부품 교체 내역"],["pcyc","부품 교체 주기"],["links","바로가기"]],tabs=mtabs.concat(MC.map(function(n,i){return["mc-"+n.toLowerCase(),n+"호기",i]}));
  if(!tabs.some(function(t){return t[0]===hs}))hs="home";CM=hs.indexOf("mc-")===0?MC.indexOf(hs.slice(3).toUpperCase()):-1;
  $("tabs").innerHTML='<div class="mh">연세유업 업무 포털</div>'+mtabs.map(function(t){return(t[0]==="maint-log"?'<hr>':'')+'<a href="#'+t[0]+'" class="'+(t[0]===hs||(t[0]==="home"&&hs.indexOf("mc-")===0)?"on":"")+'">'+t[1]+'</a>'}).join("");
  var ct=tabs.filter(function(t){return t[0]===hs})[0];$("mcur").innerHTML=(ct[2]!=null?'<span class="dot" style="background:'+cv(ct[2])+'"></span>':"")+ct[1];menu(false);
- $("pbar").classList.toggle("hide",hs==="links"||hs==="parts"||hs==="pchg"||hs==="pcyc"||hs==="maint-log"||hs==="pm"||hs==="daily");
+ $("pbar").classList.toggle("hide",hs==="links"||hs==="parts"||hs==="pchg"||hs==="pcyc"||hs==="maint-log"||hs==="pm"||hs==="daily"||hs==="edits");
  if(hs==="home"){main.innerHTML=home();paintRL()}
  else if(hs==="stops"){main.innerHTML=stopsPage();stopsFill();$("sm").onchange=function(){SM=+this.value;stopsFill()};$("sq").oninput=function(){SQ=this.value.trim();stopsFill()}}
+ else if(hs==="edits"){main.innerHTML=edPage();EDSHOW=100;$("edm").value=EDM;$("edc").value=EDC;$("edq").value=EDQ;$("edm").onchange=function(){EDM=+this.value;edFill()};$("edc").onchange=function(){EDC=this.value;edFill()};$("edq").oninput=function(){EDQ=this.value.trim();edFill()};edFill()}
  else if(hs==="parts"){main.innerHTML=stkPage();stkWire()}
  else if(hs==="pm"){main.innerHTML=pmPage();pmWire()}
  else if(hs==="daily"){main.innerHTML=drPage();drWire()}
@@ -1201,6 +1242,43 @@ function route(){
 }
 /* ---- F호기 생산 진행 ---- */
 var RDB=null,RUN=null,RUNS=[],RMODE="",RLOAD=true,RRO=/[?&]view=1(&|$)/.test(location.search),RBUSY=false;
+var US=null,DC={},ELOG=[],EDSHOW=100,EDQ="",EDM=-1,EDC="";
+/* 수정 이력(edit_log): 모든 추가·수정·삭제를 언제·무엇을·어떤 값에서 어떤 값으로 바꿨는지 따로 쌓음 */
+var EDCOL={run_cur:"생산 진행",runs_log:"생산 기록",stops_log:"정지 기록",run_open:"정지 중",speed_log:"속도 조정",maint:"정비 일정",pm_log:"예방정비",part_stock:"부품 재고",part_changes:"부품 교체",part_cycles:"부품 교체 주기",parts:"부품",hours:"가동시간",crew:"근무자",daily_reports:"일일현황보고",gift_events:"선물포장기"};
+var EDF={item:"제품",recipe:"레시피",note:"메모",plan:"계획",rate:"시간당",start:"시작",end:"종료",stops:"정지 구간",adj:"실적 보정",produced:"생산량",actual:"실적",stopMin:"정지(분)",date:"일자",st:"시작",en:"종료",sMs:"시작",eMs:"종료",min:"분",eq:"설비",loc:"위치",prob:"문제점",act:"조치",from:"시작일",to:"종료일",spd:"속도",loss:"손실(분)",cause:"원인",ex:"가동률 제외",qty:"수량",used:"중고 수량",no:"부품번호",mi:"호기"};
+var EDSKIP={byN:1,ebyN:1,eat:1,ts:1,_id:1,_mi:1,qts:1,mc:1,sMs:1,eMs:1};
+function edVal(k,v){if(v==null||v==="")return"-";if(typeof v==="number"&&v>1e12){var d=new Date(v);return(d.getMonth()+1)+"/"+d.getDate()+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)}
+ if(k==="stops"&&Array.isArray(v))return v.length+"회";if(k==="adj"&&typeof v==="object")return v.q!=null?String(v.q):"있음";if(k==="mi"&&MC[v])return MC[v]+"호기";if(typeof v==="boolean")return v?"예":"아니오";
+ var s=typeof v==="object"?JSON.stringify(v):String(v);return s.length>60?s.slice(0,60)+"…":s}
+function edDiff(a,b){var ch=[],ks={};Object.keys(a||{}).concat(Object.keys(b||{})).forEach(function(k){ks[k]=1});
+ Object.keys(ks).forEach(function(k){if(EDSKIP[k])return;var x=a?a[k]:undefined,y=b?b[k]:undefined;if(JSON.stringify(x)===JSON.stringify(y))return;ch.push([EDF[k]||k,edVal(k,x),edVal(k,y)])});return ch}
+function edMi(p,d){var c=p.split("/"),m=d&&d.mi!=null?d.mi:(d&&d._mi!=null?d._mi:-1);if(m<0&&(c[0]==="run_cur"||c[0]==="run_open"))m=MC.indexOf(c[1]);if(m<0&&/^[A-F]_/.test(c[1]||""))m=MC.indexOf(c[1][0]);return m}
+function stampDb(db){
+ function log(op,p,a,b){try{var c=p.split("/")[0];if(!EDCOL[c])return;var ch=op==="edit"?edDiff(a,b):[];if(op==="edit"&&!ch.length)return;var d=b||a||{};
+  db.collection("edit_log").add({at:Date.now(),op:op,col:c,id:p.split("/")[1]||"",mi:edMi(p,d),day:d.date||d.from||(d.start?dkey(d.start):d.sMs?dkey(d.sMs):""),what:String(d.item||d.eq||d.note||d.no||d.prob||"").slice(0,60),ch:ch,old:op==="del"?JSON.stringify(a||{}).slice(0,4000):""}).catch(function(){})}catch(e){}}
+ function stamp(d,p){if(!d||typeof d!=="object"||Array.isArray(d))return d;var o=Object.assign({},d);o.eat=Date.now();return o}
+ function ref(r,p,isCol){return new Proxy({},{get:function(_,k){
+  if(k==="set")return function(d,o){var s=stamp(d,p),pv=DC[p];var pr=o===undefined?r.set(s):r.set(s,o);return Promise.resolve(pr).then(function(x){log(pv?"edit":"add",p,pv,s);return x})};
+  if(k==="add")return function(d){var s=stamp(d,null);return Promise.resolve(r.add(s)).then(function(x){log("add",p+"/"+((x&&x.id)||""),null,s);return x})};
+  if(k==="update")return function(d){var pv=DC[p],s=Object.assign({},d,{eat:Date.now()});return Promise.resolve(r.update(s)).then(function(x){log("edit",p,pv,Object.assign({},pv||{},s));return x})};
+  if(k==="delete")return function(){var pv=DC[p];return Promise.resolve(r.delete()).then(function(x){if(pv)log("del",p,pv,null);return x})};
+  if(k==="doc"||k==="collection")return function(x){return ref(r[k].apply(r,arguments),(p?p+"/":"")+x,k==="collection")};
+  if(k==="onSnapshot"&&isCol)return function(cb,er){return r.onSnapshot(function(sn){try{Object.keys(DC).forEach(function(q){if(q.indexOf(p+"/")===0)delete DC[q]});sn.docs.forEach(function(x){var d=x.data();if(d)DC[p+"/"+x.id]=d})}catch(e){}cb(sn)},er)};
+  var v=r[k];return typeof v==="function"?v.bind(r):v}})}
+ return ref(db,"",false)}
+var EDOP={add:["추가","var(--good)"],edit:["수정","var(--accent)"],del:["삭제","var(--bad)"]};
+function edPage(){return'<div class="card"><h2>수정 이력</h2><div class="note" style="margin-bottom:8px">포털에서 입력·수정·삭제한 내역을 모두 남깁니다. 언제 무엇을 바꿨는지, 바뀌기 전 값과 바뀐 값을 볼 수 있습니다.</div>'+
+ '<div class="bar"><label>호기<select id="edm"><option value="-1">전체</option>'+[].map.call(MC,function(n,i){return'<option value="'+i+'">'+n+'호기</option>'}).join("")+'</select></label>'+
+ '<label>종류<select id="edc"><option value="">전체</option>'+Object.keys(EDCOL).map(function(k){return'<option value="'+k+'">'+EDCOL[k]+'</option>'}).join("")+'</select></label>'+
+ '<label>내용<input id="edq" placeholder="제품, 설비, 문제점"></label></div><div id="edl"></div></div>'}
+function edFill(){var el=$("edl");if(!el)return;var q=EDQ.toLowerCase();
+ var a=ELOG.filter(function(x){return(EDM<0||x.mi===EDM)&&(!EDC||x.col===EDC)&&(!q||(String(x.what)+" "+JSON.stringify(x.ch||[])).toLowerCase().indexOf(q)>=0)});
+ if(!a.length){el.innerHTML='<div class="empty">'+(ELOG.length?'조건에 맞는 이력이 없습니다.':'아직 기록된 수정 이력이 없습니다. 이제부터 입력·수정·삭제하는 내용이 여기에 쌓입니다.')+'</div>';return}
+ el.innerHTML='<div class="tw"><table><tr><th>시각</th><th>구분</th><th>대상</th><th>바뀐 내용</th></tr>'+a.slice(0,EDSHOW).map(function(x){var o=EDOP[x.op]||[x.op,"var(--mute)"],d=new Date(x.at);
+  var ch=x.op==="edit"?(x.ch||[]).map(function(c){return'<div><span class="note">'+esc(c[0])+'</span> '+esc(c[1])+' → <b>'+esc(c[2])+'</b></div>'}).join(""):(x.op==="del"?'<span class="note">삭제됨</span>':'<span class="note">새로 입력</span>');
+  return'<tr><td style="white-space:nowrap">'+(d.getMonth()+1)+'/'+d.getDate()+' '+("0"+d.getHours()).slice(-2)+':'+("0"+d.getMinutes()).slice(-2)+'</td><td><span class="pill" style="color:'+o[1]+'">'+o[0]+'</span></td><td>'+esc(EDCOL[x.col]||x.col)+(x.mi>=0&&MC[x.mi]?' · '+MC[x.mi]+'호기':'')+(x.day?' · '+esc(x.day):'')+(x.what?'<div class="note">'+esc(x.what)+'</div>':'')+'</td><td>'+ch+'</td></tr>'}).join("")+'</table></div>'+(a.length>EDSHOW?'<div style="margin-top:8px"><button id="edmore">더 보기 ('+Math.min(EDSHOW,a.length)+' / '+a.length+')</button></div>':'');
+ var mb=$("edmore");if(mb)mb.onclick=function(){EDSHOW+=100;edFill()}}
+function who(x){return""}
 function rNet(r,t){var st=0;(r.stops||[]).forEach(function(s){var a=s[0],b=s[1]==null?t:s[1];if(a<t)st+=Math.min(b,t)-a});return{net:Math.max(0,t-r.start-st),stop:st}}
 function rCalc(r,now){
  var n=rNet(r,now),pace=Math.min(r.plan,r.rate*n.net/3600000),p=pace,ar=r.rate,has=false;
@@ -1243,7 +1321,7 @@ function maintPaint(){
   if($("madd2"))$("madd2").onclick=async function(){var f=$("mf").value,t=$("mt").value||f,n=$("mn").value.trim().slice(0,60);if(!f){$("mmsg").textContent="시작일을 입력하세요.";return}if(t<f){$("mmsg").textContent="종료일이 시작일보다 빠릅니다.";return}
    try{await RDB.collection("maint").add({mi:CM,from:f,to:t,note:n||"정비",ts:Date.now()});$("mf").value="";$("mt").value="";$("mmsg").textContent="추가했습니다."}catch(e){$("mmsg").textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}}
  var a=MAINT.filter(function(x){return x.mi===CM}).sort(function(p,q){return p.from<q.from?1:-1}),td=dkey(Date.now());
- $("mlist").innerHTML=a.length?'<div class="tw"><table><tr><th>기간</th><th>내용</th><th>상태</th><th></th></tr>'+a.map(function(x){var st=x.from<=td&&td<=x.to?"정비 중":(x.from>td?"예정":"종료");return'<tr><td>'+esc(x.from)+' ~ '+esc(x.to)+'</td><td><b style="color:var(--warn);font-size:15px">'+esc(x.note)+'</b></td><td>'+st+'</td><td>'+(RRO?"":'<button data-medit="'+esc(x._id)+'">수정</button> <button data-mdel="'+esc(x._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>':'<div class="note">등록된 정비 일정이 없습니다. 정비 기간을 넣으면 전체 현황에 "정비 중"으로 표시됩니다.</div>';
+ $("mlist").innerHTML=a.length?'<div class="tw"><table><tr><th>기간</th><th>내용</th><th>상태</th><th></th></tr>'+a.map(function(x){var st=x.from<=td&&td<=x.to?"정비 중":(x.from>td?"예정":"종료");return'<tr><td>'+esc(x.from)+' ~ '+esc(x.to)+'</td><td><b style="color:var(--warn);font-size:15px">'+esc(x.note)+'</b></td><td>'+st+'</td><td>'+who(x)+(RRO?"":'<button data-medit="'+esc(x._id)+'">수정</button> <button data-mdel="'+esc(x._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>':'<div class="note">등록된 정비 일정이 없습니다. 정비 기간을 넣으면 전체 현황에 "정비 중"으로 표시됩니다.</div>';
 }
 function editMaint(id){
  var x=MAINT.filter(function(r){return r._id===id})[0];if(!x||RRO)return;
@@ -1304,13 +1382,14 @@ function editStop(id){
  editBox("정지 기록 수정 · "+(x.mc||""),[{l:"일자",t:"date",v:x.date},{l:"시작",t:"time",v:x.st},{l:"종료",t:"time",v:x.en},{l:"설비",v:x.eq,list:"eql"},{l:"위치",v:x.loc},{l:"문제점",v:x.prob,list:"cauL"},{l:"조치",v:x.act}],async function(v){
   if(!v[0]||!v[1]||!v[2])return"일자, 시작, 종료 시각을 입력하세요.";if(!v[3])return"설비를 입력하세요.";
   var a=mkMs(v[0],v[1]),b=mkMs(v[0],v[2]);if(b<=a)b+=86400000;
-  var n=Object.assign({},x);delete n._id;n.date=dkey(a);n.st=hm(a);n.en=hm(b);n.sMs=a;n.eMs=b;n.min=Math.max(1,Math.round((b-a)/60000));n.eq=v[3].slice(0,40);n.loc=(v[4]||"-").slice(0,80);n.prob=v[5].slice(0,160);n.act=v[6].slice(0,160);
+  if(v[0]===x.date&&x.sMs&&x.st){var off=Math.round((x.sMs-mkMs(x.date,x.st))/86400000)*86400000;a+=off;b+=off}
+  var n=Object.assign({},x);delete n._id;n.date=x.mi!=null?runDay(x.mi,a):dkey(a);n.st=hm(a);n.en=hm(b);n.sMs=a;n.eMs=b;n.min=Math.max(1,Math.round((b-a)/60000));n.eq=v[3].slice(0,40);n.loc=(v[4]||"-").slice(0,80);n.prob=v[5].slice(0,160);n.act=v[6].slice(0,160);
   try{await RDB.doc("stops_log/"+id).set(n);if(x.mi!=null)await fixRunStops(x.mi,x.sMs,x.eMs,a,b)}catch(e){return"저장하지 못했습니다."}
  });
 }
 function rItems(){var o={};PR.forEach(function(r){if(r.m===CM)o[D.I[r.i]]=(o[D.I[r.i]]||0)+1});return Object.keys(o).sort(function(a,b){return o[b]-o[a]}).slice(0,60)}
 async function rSave(obj){if(!RDB||RBUSY)return;RBUSY=true;try{await RDB.doc("run_cur/"+MC[CM]).set(obj)}catch(e){if($("rmsg"))$("rmsg").textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}RBUSY=false}
-function rBtns(x){return RRO?"":'<button data-redit="'+esc(x._id)+'">수정</button> <button data-rdel="'+esc(x._id)+'">삭제</button>'}
+function rBtns(x){return who(x)+(RRO?"":'<button data-redit="'+esc(x._id)+'">수정</button> <button data-rdel="'+esc(x._id)+'">삭제</button>')}
 function rHist(){
  if(!RUNS.length)return"";
  return'<div style="margin-top:14px"><div class="note" style="margin-bottom:4px">최근 생산 기록</div><div class="tw"><table><tr><th>제품</th><th>레시피</th><th>시작</th><th>종료</th><th class="n">생산량</th><th class="n">계획</th><th class="n">달성</th><th class="n">정지</th><th class="n">가동률</th><th>특이사항</th><th></th></tr>'+RUNS.slice(0,5).map(function(x){return'<tr><td>'+esc(x.item||"-")+'</td><td>'+esc([x.recipe,x.gtype].filter(Boolean).join(" · ")||"-")+'</td><td>'+clock(x.start)+'</td><td>'+clock(x.end)+'</td><td class="n">'+fmt(x.produced)+'</td><td class="n">'+fmt(x.plan)+'</td><td class="n">'+(x.plan?(x.produced/x.plan*100).toFixed(1)+'%'+(x.actual?'':'(추정)'):'-')+'</td><td class="n">'+x.stopMin+'분</td><td class="n">'+avTxt(x)+'</td><td>'+esc(x.note||"")+'</td><td>'+rBtns(x)+'</td></tr>'}).join("")+'</table></div></div>';
@@ -1416,7 +1495,9 @@ async function runInit(){
  try{
   if(typeof claude==="undefined"||!claude.use)throw 0;
   RDB=await claude.use("db");if(!RDB)throw 0;
-  try{var us=await claude.use("user");if(us&&us.can&&us.can("data.write")===false)RRO=true}catch(e){}
+  try{US=await claude.use("user");if(US&&US.can&&(await US.can("data.write"))===false)RRO=true}catch(e){}
+  RDB=stampDb(RDB);
+  RDB.collection("edit_log").orderBy("at","desc").limit(1000).onSnapshot(function(sn){ELOG=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.at});edFill()},function(){});
   try{if(/[?&]view=1(&|$)/.test(location.search))RRO=true}catch(e){}
   RDB.collection("run_cur").onSnapshot(function(sn){clearTimeout(tm);RLOAD=false;RUNMAP={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.start&&d.plan&&d.rate)RUNMAP[x.id]=Object.assign({},d,{_mi:MC.indexOf(x.id)})});RMODE="";runPaint();SMODE="";stopPaint()},function(){RLOAD=false;RMODE="";runPaint()});
   try{DL=await claude.use("downloads");if(DL)["xls","xlsAll","runsX","appX","lpx","stx","gfx"].forEach(function(id){var e=$(id);if(e)e.style.display="inline-flex"})}catch(e){}
@@ -1459,7 +1540,10 @@ function mkMs(date,time){return new Date(date+"T"+time).getTime()}
 function eqNames(){var o={};ST.forEach(function(r){if(r.m===CM)o[r.e]=(o[r.e]||0)+1});SLOG.forEach(function(r){if(r.eq)o[r.eq]=(o[r.eq]||0)+1});return Object.keys(o).sort(function(a,b){return o[b]-o[a]}).slice(0,40)}
 function gv(id){var e=$(id);return e?e.value.trim():""}
 function sFields(pre){return{eq:gv(pre+"q").slice(0,40),loc:gv(pre+"l").slice(0,80),prob:gv(pre+"p").slice(0,160),act:gv(pre==="l"?"la2":pre+"a").slice(0,160)}}
-function sRec(sMs,eMs,f){var m=Math.max(1,Math.round((eMs-sMs)/60000));return{date:dkey(sMs),st:hm(sMs),en:hm(eMs),sMs:sMs,eMs:eMs,min:m,eq:f.eq||"-",loc:f.loc||"-",prob:f.prob||"",act:f.act||"",mc:MC[CM]+"호기",mi:CM,ts:Date.now()}}
+/* 생산이 자정을 넘겨 다음날 끝나면, 그 생산 중 정지는 생산 시작한 날 일자로 남김 */
+function runDay(mi,ms){var rs=[],c=RUNMAP[MC[mi]];if(c&&c.start)rs.push([c.start,Infinity]);RUNSALL.forEach(function(r){if(r.mi===mi&&r.start&&r.end)rs.push([r.start,r.end])});
+ for(var k=0;k<rs.length;k++)if(ms>=rs[k][0]&&ms<=rs[k][1])return dkey(rs[k][0]);return dkey(ms)}
+function sRec(sMs,eMs,f){var m=Math.max(1,Math.round((eMs-sMs)/60000));return{date:runDay(CM,sMs),st:hm(sMs),en:hm(eMs),sMs:sMs,eMs:eMs,min:m,eq:f.eq||"-",loc:f.loc||"-",prob:f.prob||"",act:f.act||"",mc:MC[CM]+"호기",mi:CM,ts:Date.now()}}
 function runAddStop(a,b){
  if(!RUN||RRO||a<RUN.start)return Promise.resolve();
  var r=JSON.parse(JSON.stringify(RUN)),open=(r.stops||[]).filter(function(s){return s[1]==null});
@@ -1515,9 +1599,9 @@ function stopPaint(){
  }
  if(mode==="open"&&$("lel"))$("lel").textContent=hm(OPEN.st)+" 시작 · "+dur(Date.now()-OPEN.st)+" 경과";
  var rows=SLOG.slice().sort(function(a,b){return b.sMs-a.sMs}).filter(function(r){return(!STDF||r.date>=STDF)&&(!STDT||r.date<=STDT)}),tb=$("stbl");
- if(tb)tb.innerHTML='<div class="bar" style="margin:0 0 6px;align-items:flex-end"><label>기간 시작<input type="date" id="sdf" value="'+STDF+'"></label><label>기간 끝<input type="date" id="sdt" value="'+STDT+'"></label><button data-more="sdclr">전체 기간</button></div>'+(rows.length?'<div class="note" style="margin-bottom:4px">포털에 입력한 정지 '+rows.length+(STDF||STDT?'건 (선택한 기간)':'건')+'</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">분</th><th>설비</th><th>위치</th><th>문제점</th><th>조치</th><th></th></tr>'+rows.slice(0,STSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td>'+esc(r.eq)+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.prob)+'</td><td>'+esc(r.act)+'</td><td>'+(RRO?"":'<button data-sedit="'+esc(r._id)+'">수정</button> <button data-sdel="'+esc(r._id)+'" title="삭제">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("st",Math.min(STSHOW,rows.length),rows.length):'<div class="note">'+(STDF||STDT?'선택한 기간에 입력한 정지가 없습니다.':'아직 입력한 정지가 없습니다.')+'</div>');
+ if(tb)tb.innerHTML='<div class="bar" style="margin:0 0 6px;align-items:flex-end"><label>기간 시작<input type="date" id="sdf" value="'+STDF+'"></label><label>기간 끝<input type="date" id="sdt" value="'+STDT+'"></label><button data-more="sdclr">전체 기간</button></div>'+(rows.length?'<div class="note" style="margin-bottom:4px">포털에 입력한 정지 '+rows.length+(STDF||STDT?'건 (선택한 기간)':'건')+'</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">분</th><th>설비</th><th>위치</th><th>문제점</th><th>조치</th><th></th></tr>'+rows.slice(0,STSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+(r.sMs&&dkey(r.sMs)!==r.date?' <span class="note">익일</span>':'')+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td>'+esc(r.eq)+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.prob)+'</td><td>'+esc(r.act)+'</td><td>'+who(r)+(RRO?"":'<button data-sedit="'+esc(r._id)+'">수정</button> <button data-sdel="'+esc(r._id)+'" title="삭제">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("st",Math.min(STSHOW,rows.length),rows.length):'<div class="note">'+(STDF||STDT?'선택한 기간에 입력한 정지가 없습니다.':'아직 입력한 정지가 없습니다.')+'</div>');
  var pt=$("ptbl");if(pt){var pr=SPDALL.filter(function(r){return r.mi===CM}).sort(function(a,b){return b.sMs-a.sMs}),tl=pr.reduce(function(a,r){return a+(r.loss||0)},0);
-  pt.innerHTML=pr.length?'<div class="note" style="margin-bottom:4px">속도 조정 '+pr.length+'건 · 손실 환산 합계 '+fmt(Math.round(tl))+'분</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">운전(분)</th><th class="n">속도</th><th class="n">손실(분)</th><th>원인</th><th></th></tr>'+pr.slice(0,PSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td class="n">'+fmt(r.spd)+'</td><td class="n">'+(Math.round(r.loss*10)/10)+'</td><td>'+esc(spcN(r.cause,CM))+(r.ex?' <span class="note">(가동률 제외)</span>':'')+'</td><td>'+(RRO?"":'<button data-pedit="'+esc(r._id)+'">수정</button> <button data-pdel="'+esc(r._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("sp",Math.min(PSHOW,pr.length),pr.length):'<div class="note">아직 입력한 속도 조정이 없습니다.</div>'}
+  pt.innerHTML=pr.length?'<div class="note" style="margin-bottom:4px">속도 조정 '+pr.length+'건 · 손실 환산 합계 '+fmt(Math.round(tl))+'분</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">운전(분)</th><th class="n">속도</th><th class="n">손실(분)</th><th>원인</th><th></th></tr>'+pr.slice(0,PSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td class="n">'+fmt(r.spd)+'</td><td class="n">'+(Math.round(r.loss*10)/10)+'</td><td>'+esc(spcN(r.cause,CM))+(r.ex?' <span class="note">(가동률 제외)</span>':'')+'</td><td>'+who(r)+(RRO?"":'<button data-pedit="'+esc(r._id)+'">수정</button> <button data-pdel="'+esc(r._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("sp",Math.min(PSHOW,pr.length),pr.length):'<div class="note">아직 입력한 속도 조정이 없습니다.</div>'}
  var xb=$("xls");if(xb)xb.disabled=!(SLOG.length||SPDALL.some(function(r){return r.mi===CM}));
 }
 function pRec(a,b,spd,old,cause){cause=cause||(old&&old.cause)||spcL(CM)[0];var m=Math.max(1,Math.round((b-a)/60000));return Object.assign({},old||{},{date:dkey(a),st:hm(a),en:hm(b),sMs:a,eMs:b,min:m,spd:spd,base:BASE,loss:m*(1-spd/BASE),mc:MC[CM]+"호기",mi:old&&old.mi!=null?old.mi:CM,cause:cause,ex:cause===SPC[1],ts:Date.now()})}
@@ -1712,7 +1796,7 @@ async function xlsSave(all){var rows=all?SLOGALL:SLOG,sp=(all?SPDALL:SPDALL.filt
  catch(e){if(m)m.textContent=(e&&e.code==="declined")?"저장을 취소했습니다.":"저장하지 못했습니다."}
 }
 document.addEventListener("input",function(e){var t=e.target;if(t&&(t.id==="lda"||t.id==="ldp"))t.dataset.dirty=1});
-document.addEventListener("change",function(e){var t=e.target;if(t&&t.id==="ldd"){LEADD=t.value;$("lda").dataset.dirty="";$("ldp").dataset.dirty="";$("lda").value="";$("ldp").value="";leadLoad()}if(t&&(t.id==="gcd"||t.id==="gcm"))gcrLoad();if(t&&(t.id==="sdf"||t.id==="sdt")){STDF=$("sdf").value;STDT=$("sdt").value;STSHOW=15;stopPaint()}});
+document.addEventListener("change",function(e){var t=e.target;if(t&&t.id==="ldd"){LEADD=t.value;var lc=LEAD[t.value]||{};if(lc.am||lc.pm){$("lda").dataset.dirty="";$("ldp").dataset.dirty="";$("lda").value="";$("ldp").value=""}$("ldmsg").textContent="";leadLoad()}if(t&&(t.id==="gcd"||t.id==="gcm"))gcrLoad();if(t&&(t.id==="sdf"||t.id==="sdt")){STDF=$("sdf").value;STDT=$("sdt").value;STSHOW=15;stopPaint()}});
 document.addEventListener("click",function(e){if(e.target&&e.target.id==="gcsv"){gcrSave();return}
  if(e.target&&e.target.id==="ldsv"){leadSave();return}
  var mo=e.target.closest&&e.target.closest("[data-more]");if(mo){var q=mo.getAttribute("data-more");if(q==="gc")GCSHOW+=30;if(q==="gcall")GCSHOW=1e9;if(q==="st")STSHOW+=30;else if(q==="stall")STSHOW=1e9;else if(q==="sp")PSHOW+=30;else if(q==="spall")PSHOW=1e9;else if(q==="gv")GVSHOW+=30;else if(q==="gvall")GVSHOW=1e9;else if(q==="sdclr"){STDF="";STDT="";STSHOW=15}
