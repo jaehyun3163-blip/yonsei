@@ -574,7 +574,20 @@
      else if(fin.length){m.status="done";m.label="생산 완료";if(fin[0].item)m.item=String(fin[0].item).slice(0,80);m.qty=Math.round(fq);if(fo>0)m.order=Math.round(fo);m.since=kt(fin[0].end)}
      else{m.status="wait";m.label="대기"}
      out.push(m)}
-    return{date:today,updated_at:new Date(now).toISOString().replace(/\.\d{3}Z$/,"Z"),machines:out}}
+    return{date:today,updated_at:new Date(now).toISOString().replace(/\.\d{3}Z$/,"Z"),machines:out,crew:crewList(today,now)}}
+   /* 근무자 명단: 근무 인원(호기별 오전·오후 전포장/후포장/선물포장)과 조장. 이름·근무조·근무 시간만 (개인정보 없음) */
+   /* 오전조 07:30~16:00, 오후조 16:00~생산 종료 후 청소까지(보통 24:30). 자정을 넘기면 00:30까지는 전날 오후조가 근무 중 */
+   var SHIFT={am:{t:"오전조",s:"07:30",e:"16:00",d:"07:30~16:00"},pm:{t:"오후조",s:"16:00",e:"00:30",d:"16:00~24:30"}};
+   function onNow(z,now,prev){var h=kt(now),s=SHIFT[z];if(prev)return z==="pm"&&h<s.e;return s.s<=s.e?(h>=s.s&&h<s.e):(h>=s.s)}
+   function crewList(day,now){var W=window,out=[],seen={};
+    function add(n,team,z,X,prev){n=String(n||"").trim().slice(0,20);if(!n)return;var k=n+"|"+z+"|"+(X||"");if(seen[k])return;seen[k]=1;
+     var o={name:n,team:team,time:SHIFT[z].d};if(X)o.machine=X;o.on=onNow(z,now,prev);out.push(o)}
+    function one(dd,zs,prev){var ld=(W.LEAD||{})[dd]||{};zs.forEach(function(z){if(ld[z])add(ld[z],SHIFT[z].t+" 조장",z,"",prev)});
+     (W.MC||[]).forEach(function(X){var c=(W.CREW||{})[dd+"_"+X];if(!c)return;var d=c.d||{},g=c.g||{};
+      zs.forEach(function(z){var x=d[z]||{};(x.f||[]).forEach(function(n){add(n,SHIFT[z].t+" 전포장",z,X,prev)});(x.b||[]).forEach(function(n){add(n,SHIFT[z].t+" 후포장",z,X,prev)});(g[z]||[]).forEach(function(n){add(n,SHIFT[z].t+" 선물포장",z,X,prev)})})})}
+    if(kt(now)<SHIFT.pm.e)one(kd(now-86400000),["pm"],true);
+    one(day,["am","pm"],false);
+    return out.slice(0,60)}
    /* 날짜별 기록 publicDaily/{YYYY-MM-DD}: 그 날 시작한 생산(자정 넘겨 끝나도 시작일)과 그 날 정지 기록 */
    function mlOf(s){var m=String(s||"").match(/(\d{2,4})\s*ml/i);return m?+m[1]:null}
    function daily(day){var W=window;if(!W.RUNSALL||!W.MC)return null;var now=Date.now(),out=[];
@@ -583,10 +596,13 @@
      var cu=W.RUNMAP&&W.RUNMAP[X];if(cu&&cu.start&&kd(cu.start)===day){var c=null;try{c=W.rCalc(cu,now)}catch(e){}runs.push({item:cu.item,start:cu.start,end:null,qty:c?c.p:0,order:+cu.plan||0})}
      runs.sort(function(a,b){return a.start-b.start});
      var st=(W.SLOGALL||[]).filter(function(x){return x.mi===i&&x.date===day&&x.sMs}).sort(function(a,b){return a.sMs-b.sMs});
-     if(!runs.length&&!st.length)continue;
+     if(!runs.length&&!st.length&&!(W.WRP||{})[day+"_"+X])continue;
      var m={machine:X},items=runs.map(function(r){return String(r.item||"").trim()}).filter(Boolean);
      if(items.length)m.item=items.join(" / ").slice(0,120);var ml=mlOf(items.join(" "));if(ml)m.ml=ml;
      if(runs.length){m.qty=Math.round(runs.reduce(function(s,r){return s+r.qty},0));m.order=Math.round(runs.reduce(function(s,r){return s+r.order},0));m.ps=kt(runs[0].start);var last=runs[runs.length-1];if(last.end)m.pe=kt(last.end)}
+     /* 작업일보 입력값: sip = 멸균 시작 (A·E 과산화수소 멸균, 나머지 Heat sterilization), ce = 마지막 C.I.P 시각 */
+     var wf=((W.WRP||{})[day+"_"+X]||{}).f||{},isP=(X==="A"||X==="E"),sip=isP?wf.PR1_2:wf.PR1_3;if(sip)m.sip=String(sip);
+     var ce="";for(var q=1;q<=8;q++)if(wf["CIP"+q])ce=wf["CIP"+q];if(ce)m.ce=String(ce);
      m.stops=st.slice(0,200).map(function(x){var o={start:kt(x.sMs),end:x.eMs?kt(x.eMs):"",min:+x.min||0},why=x.prob||x.eq;if(why)o.reason=String(why).slice(0,80);return o});
      out.push(m)}
     return{date:day,updated_at:new Date(now).toISOString().replace(/\.\d{3}Z$/,"Z"),machines:out}}
@@ -594,7 +610,7 @@
    function publish(){var b=board();if(!b)return Promise.resolve();var t=Date.now();
     return Promise.all([fs.doc("publicBoard/today").set(b).catch(function(e){console.warn("부문포털 현황 갱신 실패",e)}),pubDaily(kd(t)),pubDaily(kd(t-86400000))])}
    window.__pubDaily=pubDaily;
-   function pubSoon(p){if(!/^(run_cur|run_open|maint|runs_log|stops_log)\//.test(p))return;clearTimeout(PUBT);PUBT=setTimeout(publish,1500)}
+   function pubSoon(p){if(!/^(run_cur|run_open|maint|runs_log|stops_log|crew|work_reports)\//.test(p))return;clearTimeout(PUBT);PUBT=setTimeout(publish,1500)}
    window.__pubBoard=publish;
    /* 날짜가 바뀐 뒤 처음 열면 한 번 갱신 (진행 중인 생산이 다음날에도 보이도록) */
    setTimeout(function(){if(window.RRO)return;fs.doc("publicBoard/today").get().then(function(s){if(!s.exists||s.data().date!==kd(Date.now()))publish()}).catch(function(){})},10000);
