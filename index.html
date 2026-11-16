@@ -584,10 +584,18 @@
     update:function(d){return r.get().then(function(s){return r.set(enc(Object.assign({},s.exists?dec(s):{},d)))}).then(function(x){pubSoon(p);return x})},
     delete:function(){return r.delete().then(function(x){pubSoon(p);return x})},
     onSnapshot:function(cb,er){return r.onSnapshot(function(s){cb(wrap(s))},er)}}}
-   function query(c,r){return{
-    orderBy:function(f,dir){return query(c,r.orderBy(f,dir))},
-    limit:function(k){return query(c,r.limit(k))},
-    onSnapshot:function(cb,er){return r.onSnapshot(function(q){cb(qsnap(q))},er)}}}
+   /* 읽기 절약: 아래 컬렉션은 최근 60일 안에 저장된 문서만 불러옴. 오래된 기간을 고르면 window.__fbAll()로 전체를 불러옴 */
+   var RECENT={stops_log:1,speed_log:1,gift_events:1,daily_reports:1,crew:1},FROM=Date.now()-60*86400000,LIVE=[];
+   window.__fbFrom=FROM;window.__fbAllDone=false;
+   window.__fbAll=function(){if(window.__fbAllDone)return;window.__fbAllDone=true;
+    LIVE.forEach(function(e){try{e.un()}catch(x){}e.un=e.r.onSnapshot(function(q){e.cb(qsnap(q))},e.er)})};
+   function query(c,r,base){return{
+    orderBy:function(f,dir){return query(c,r.orderBy(f,dir),true)},
+    limit:function(k){return query(c,r.limit(k),true)},
+    onSnapshot:function(cb,er){
+     if(base||!RECENT[c]||window.__fbAllDone)return r.onSnapshot(function(q){cb(qsnap(q))},er);
+     var e={r:r,cb:cb,er:er};e.un=r.where("ts",">=",FROM).onSnapshot(function(q){if(!window.__fbAllDone||e.full)cb(qsnap(q))},er);
+     LIVE.push(e);return function(){try{e.un()}catch(x){}}}}}
    var db={doc:dref,collection:function(c){var r=fs.collection(c),q=query(c,r);
     q.doc=function(id){return dref(c+"/"+id)};
     q.add=function(d){return r.add(enc(d)).then(function(x){pubSoon(c+"/"+x.id);return Object.assign(dref(c+"/"+x.id),{id:x.id})})};
@@ -827,7 +835,7 @@ function setPer(){
  else if(v==="m12"){var p12=monthAdd(LY,LM,-11);a=mkd(p12[0],p12[1],1);b=mkd(LY,LM,31)}
  else if(v==="all"){a=20210101;b=mkd(LY,12,31)}
  else{a=$("d1").value?num($("d1").value):20210101;b=$("d2").value?num($("d2").value):LAST}
- PER.f=a;PER.t=b;
+ PER.f=a;PER.t=b;needOld(a);
  $("cu").classList.toggle("hide",v!=="cu");
  $("prng").textContent=dstr(a)+" ~ "+dstr(Math.min(b,Math.max(LAST,runYmd(Date.now()))));
 }
@@ -1300,8 +1308,13 @@ function edFill(){var el=$("edl");if(!el)return;var q=EDQ.toLowerCase();
  if(!a.length){el.innerHTML='<div class="empty">'+(ELOG.length?'조건에 맞는 이력이 없습니다.':'아직 기록된 수정 이력이 없습니다. 이제부터 입력·수정·삭제하는 내용이 여기에 쌓입니다.')+'</div>';return}
  el.innerHTML='<div class="tw"><table><tr><th>시각</th><th>구분</th><th>대상</th><th>바뀐 내용</th></tr>'+a.slice(0,EDSHOW).map(function(x){var o=EDOP[x.op]||[x.op,"var(--mute)"],d=new Date(x.at);
   var ch=x.op==="edit"?(x.ch||[]).map(function(c){return'<div><span class="note">'+esc(c[0])+'</span> '+esc(c[1])+' → <b>'+esc(c[2])+'</b></div>'}).join(""):(x.op==="del"?'<span class="note">삭제됨</span>':'<span class="note">새로 입력</span>');
-  return'<tr><td style="white-space:nowrap">'+(d.getMonth()+1)+'/'+d.getDate()+' '+("0"+d.getHours()).slice(-2)+':'+("0"+d.getMinutes()).slice(-2)+'</td><td><span class="pill" style="color:'+o[1]+'">'+o[0]+'</span></td><td>'+esc(EDCOL[x.col]||x.col)+(x.mi>=0&&MC[x.mi]?' · '+MC[x.mi]+'호기':'')+(x.day?' · '+esc(x.day):'')+(x.what?'<div class="note">'+esc(x.what)+'</div>':'')+'</td><td>'+ch+'</td></tr>'}).join("")+'</table></div>'+(a.length>EDSHOW?'<div style="margin-top:8px"><button id="edmore">더 보기 ('+Math.min(EDSHOW,a.length)+' / '+a.length+')</button></div>':'');
- var mb=$("edmore");if(mb)mb.onclick=function(){EDSHOW+=100;edFill()}}
+  return'<tr><td style="white-space:nowrap">'+(d.getMonth()+1)+'/'+d.getDate()+' '+("0"+d.getHours()).slice(-2)+':'+("0"+d.getMinutes()).slice(-2)+'</td><td><span class="pill" style="color:'+o[1]+'">'+o[0]+'</span></td><td>'+esc(EDCOL[x.col]||x.col)+(x.mi>=0&&MC[x.mi]?' · '+MC[x.mi]+'호기':'')+(x.day?' · '+esc(x.day):'')+(x.what?'<div class="note">'+esc(x.what)+'</div>':'')+'</td><td>'+ch+'</td></tr>'}).join("")+'</table></div>'+(a.length>EDSHOW||ELOG.length>=EDLIM?'<div style="margin-top:8px"><button id="edmore">더 보기 ('+Math.min(EDSHOW,a.length)+(ELOG.length>=EDLIM?' / 이전 이력 더 불러오기':' / '+a.length)+')</button></div>':'');
+ var mb=$("edmore");if(mb)mb.onclick=function(){EDSHOW+=100;if(EDSHOW>ELOG.length&&ELOG.length>=EDLIM){EDLIM+=300;edSub()}else edFill()}}
+/* 수정 이력은 최근 것부터 EDLIM건만 불러오고, '더 보기'로 늘림 (읽기 횟수 절약) */
+var EDLIM=200,EDUN=null;
+function edSub(){if(!RDB)return;try{if(EDUN)EDUN()}catch(e){}EDUN=RDB.collection("edit_log").orderBy("at","desc").limit(EDLIM).onSnapshot(function(sn){ELOG=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.at});edFill()},function(){})}
+/* GitHub 버전은 정지·속도 조정 등을 최근 60일만 불러옴. 더 오래된 기간을 고르면 전체를 불러옴 */
+function needOld(ymd){if(!ymd||!window.__fbAll||!window.__fbFrom||window.__fbAllDone)return;if(ymd<runYmd(window.__fbFrom))window.__fbAll()}
 function who(x){return""}
 function rNet(r,t){var st=0;(r.stops||[]).forEach(function(s){var a=s[0],b=s[1]==null?t:s[1];if(a<t)st+=Math.min(b,t)-a});return{net:Math.max(0,t-r.start-st),stop:st}}
 function rCalc(r,now){
@@ -1521,7 +1534,7 @@ async function runInit(){
   RDB=await claude.use("db");if(!RDB)throw 0;
   try{US=await claude.use("user");if(US&&US.can&&(await US.can("data.write"))===false)RRO=true}catch(e){}
   RDB=stampDb(RDB);
-  RDB.collection("edit_log").orderBy("at","desc").limit(1000).onSnapshot(function(sn){ELOG=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.at});edFill()},function(){});
+  edSub();
   try{if(/[?&]view=1(&|$)/.test(location.search))RRO=true}catch(e){}
   RDB.collection("run_cur").onSnapshot(function(sn){clearTimeout(tm);RLOAD=false;RUNMAP={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.start&&d.plan&&d.rate)RUNMAP[x.id]=Object.assign({},d,{_mi:MC.indexOf(x.id)})});RMODE="";runPaint();SMODE="";stopPaint();asofPaint()},function(){RLOAD=false;RMODE="";runPaint()});
   try{DL=await claude.use("downloads");if(DL)["xls","xlsAll","runsX","appX","lpx","stx","gfx"].forEach(function(id){var e=$(id);if(e)e.style.display="inline-flex"})}catch(e){}
@@ -1623,7 +1636,7 @@ function stopPaint(){
  }
  if(mode==="open"&&$("lel"))$("lel").textContent=hm(OPEN.st)+" 시작 · "+dur(Date.now()-OPEN.st)+" 경과";
  var rows=SLOG.slice().sort(function(a,b){return b.sMs-a.sMs}).filter(function(r){return(!STDF||r.date>=STDF)&&(!STDT||r.date<=STDT)}),tb=$("stbl");
- if(tb)tb.innerHTML='<div class="bar" style="margin:0 0 6px;align-items:flex-end"><label>기간 시작<input type="date" id="sdf" value="'+STDF+'"></label><label>기간 끝<input type="date" id="sdt" value="'+STDT+'"></label><button data-more="sdclr">전체 기간</button></div>'+(rows.length?'<div class="note" style="margin-bottom:4px">포털에 입력한 정지 '+rows.length+(STDF||STDT?'건 (선택한 기간)':'건')+'</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">분</th><th>설비</th><th>위치</th><th>문제점</th><th>조치</th><th></th></tr>'+rows.slice(0,STSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+(r.sMs&&dkey(r.sMs)!==r.date?' <span class="note">익일</span>':'')+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td>'+esc(r.eq)+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.prob)+'</td><td>'+esc(r.act)+'</td><td>'+who(r)+(RRO?"":'<button data-sedit="'+esc(r._id)+'">수정</button> <button data-sdel="'+esc(r._id)+'" title="삭제">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("st",Math.min(STSHOW,rows.length),rows.length):'<div class="note">'+(STDF||STDT?'선택한 기간에 입력한 정지가 없습니다.':'아직 입력한 정지가 없습니다.')+'</div>');
+ if(tb)tb.innerHTML='<div class="bar" style="margin:0 0 6px;align-items:flex-end"><label>기간 시작<input type="date" id="sdf" value="'+STDF+'"></label><label>기간 끝<input type="date" id="sdt" value="'+STDT+'"></label><button data-more="sdclr">전체 기간</button>'+(window.__fbAll&&!window.__fbAllDone?'<span class="note">최근 60일 기록을 보여 줍니다 · <a href="#" data-more="fball">이전 기록 모두 불러오기</a></span>':'')+'</div>'+(rows.length?'<div class="note" style="margin-bottom:4px">포털에 입력한 정지 '+rows.length+(STDF||STDT?'건 (선택한 기간)':'건')+'</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">분</th><th>설비</th><th>위치</th><th>문제점</th><th>조치</th><th></th></tr>'+rows.slice(0,STSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+(r.sMs&&dkey(r.sMs)!==r.date?' <span class="note">익일</span>':'')+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td>'+esc(r.eq)+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.prob)+'</td><td>'+esc(r.act)+'</td><td>'+who(r)+(RRO?"":'<button data-sedit="'+esc(r._id)+'">수정</button> <button data-sdel="'+esc(r._id)+'" title="삭제">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("st",Math.min(STSHOW,rows.length),rows.length):'<div class="note">'+(STDF||STDT?'선택한 기간에 입력한 정지가 없습니다.':'아직 입력한 정지가 없습니다.')+'</div>');
  var pt=$("ptbl");if(pt){var pr=SPDALL.filter(function(r){return r.mi===CM}).sort(function(a,b){return b.sMs-a.sMs}),tl=pr.reduce(function(a,r){return a+(r.loss||0)},0);
   pt.innerHTML=pr.length?'<div class="note" style="margin-bottom:4px">속도 조정 '+pr.length+'건 · 손실 환산 합계 '+fmt(Math.round(tl))+'분</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">운전(분)</th><th class="n">속도</th><th class="n">손실(분)</th><th>원인</th><th></th></tr>'+pr.slice(0,PSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td class="n">'+fmt(r.spd)+'</td><td class="n">'+(Math.round(r.loss*10)/10)+'</td><td>'+esc(spcN(r.cause,CM))+(r.ex?' <span class="note">(가동률 제외)</span>':'')+'</td><td>'+who(r)+(RRO?"":'<button data-pedit="'+esc(r._id)+'">수정</button> <button data-pdel="'+esc(r._id)+'">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("sp",Math.min(PSHOW,pr.length),pr.length):'<div class="note">아직 입력한 속도 조정이 없습니다.</div>'}
  var xb=$("xls");if(xb)xb.disabled=!(SLOG.length||SPDALL.some(function(r){return r.mi===CM}));
@@ -1820,10 +1833,10 @@ async function xlsSave(all){var rows=all?SLOGALL:SLOG,sp=(all?SPDALL:SPDALL.filt
  catch(e){if(m)m.textContent=(e&&e.code==="declined")?"저장을 취소했습니다.":"저장하지 못했습니다."}
 }
 document.addEventListener("input",function(e){var t=e.target;if(t&&(t.id==="lda"||t.id==="ldp"))t.dataset.dirty=1});
-document.addEventListener("change",function(e){var t=e.target;if(t&&t.id==="ldd"){LEADD=t.value;var lc=LEAD[t.value]||{};if(lc.am||lc.pm){$("lda").dataset.dirty="";$("ldp").dataset.dirty="";$("lda").value="";$("ldp").value=""}$("ldmsg").textContent="";leadLoad()}if(t&&(t.id==="gcd"||t.id==="gcm"))gcrLoad();if(t&&(t.id==="sdf"||t.id==="sdt")){STDF=$("sdf").value;STDT=$("sdt").value;STSHOW=15;stopPaint()}});
+document.addEventListener("change",function(e){var t=e.target;if(t&&t.id==="ldd"){LEADD=t.value;var lc=LEAD[t.value]||{};if(lc.am||lc.pm){$("lda").dataset.dirty="";$("ldp").dataset.dirty="";$("lda").value="";$("ldp").value=""}$("ldmsg").textContent="";leadLoad()}if(t&&(t.id==="gcd"||t.id==="gcm"))gcrLoad();if(t&&(t.id==="sdf"||t.id==="sdt")){STDF=$("sdf").value;STDT=$("sdt").value;STSHOW=15;if(STDF)needOld(num(STDF));stopPaint()}});
 document.addEventListener("click",function(e){if(e.target&&e.target.id==="gcsv"){gcrSave();return}
  if(e.target&&e.target.id==="ldsv"){leadSave();return}
- var mo=e.target.closest&&e.target.closest("[data-more]");if(mo){var q=mo.getAttribute("data-more");if(q==="gc")GCSHOW+=30;if(q==="gcall")GCSHOW=1e9;if(q==="st")STSHOW+=30;else if(q==="stall")STSHOW=1e9;else if(q==="sp")PSHOW+=30;else if(q==="spall")PSHOW=1e9;else if(q==="gv")GVSHOW+=30;else if(q==="gvall")GVSHOW=1e9;else if(q==="sdclr"){STDF="";STDT="";STSHOW=15}
+ var mo=e.target.closest&&e.target.closest("[data-more]");if(mo){var q=mo.getAttribute("data-more");if(q==="fball"){e.preventDefault();if(window.__fbAll)window.__fbAll();return}if(q==="gc")GCSHOW+=30;if(q==="gcall")GCSHOW=1e9;if(q==="st")STSHOW+=30;else if(q==="stall")STSHOW=1e9;else if(q==="sp")PSHOW+=30;else if(q==="spall")PSHOW=1e9;else if(q==="gv")GVSHOW+=30;else if(q==="gvall")GVSHOW=1e9;else if(q==="sdclr"){STDF="";STDT="";STSHOW=15}
  if(q.indexOf("gv")===0||q.indexOf("gc")===0)stopsLive();else stopPaint();return}
  var pi=e.target.closest&&e.target.closest("[data-pchimp]");if(pi&&RDB&&!RRO){pi.disabled=true;var mm=$("pchimsg");Promise.all(pchMissing().map(function(z){return RDB.doc("part_changes/"+z.id).set(z.d)})).then(function(){if(mm)mm.textContent="가져왔습니다."}).catch(function(){pi.disabled=false;if(mm)mm.textContent="저장하지 못했습니다."});return}
  var ge=e.target.closest&&e.target.closest("[data-gevedit]");if(ge&&RDB&&!RRO){var gx=GEV.filter(function(r){return r._id===ge.getAttribute("data-gevedit")})[0];if(!gx)return;var gid=gx._id;
