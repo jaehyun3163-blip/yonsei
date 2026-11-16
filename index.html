@@ -564,13 +564,14 @@
     for(var i=0;i<W.MC.length;i++){var X=W.MC[i],r=W.RUNMAP[X],op=W.OPENMAP&&W.OPENMAP[X],m={machine:X};
      var fin=(W.RUNSALL||[]).filter(function(x){return x.mi===i&&x.end&&kd(x.end)===today}).sort(function(a,b){return b.end-a.end}),
          fq=fin.reduce(function(s,x){return s+(+x.produced||0)},0),
+         fo=fin.reduce(function(s,x){return s+(+x.plan||0)},0),
          mt=(W.MAINT||[]).filter(function(x){return x.mi===i&&x.from<=today&&today<=x.to})[0];
      if(r&&r.start){var c=null;try{c=W.rCalc(r,now)}catch(e){}
       m.status=op?"stop":"run";m.label=op?"정지 중":"생산 중";if(r.item)m.item=String(r.item).slice(0,80);
-      m.qty=Math.round(fq+(c?c.p:0));m.since=kt(op&&op.st?op.st:r.start);
+      m.qty=Math.round(fq+(c?c.p:0));if(fo+(+r.plan||0)>0)m.order=Math.round(fo+(+r.plan||0));m.since=kt(op&&op.st?op.st:r.start);
       if(op){var why=op.prob||op.eq;if(why)m.reason=String(why).slice(0,80)}}
      else if(mt){m.status="wait";m.label="정비 중"}
-     else if(fin.length){m.status="done";m.label="생산 완료";if(fin[0].item)m.item=String(fin[0].item).slice(0,80);m.qty=Math.round(fq);m.since=kt(fin[0].end)}
+     else if(fin.length){m.status="done";m.label="생산 완료";if(fin[0].item)m.item=String(fin[0].item).slice(0,80);m.qty=Math.round(fq);if(fo>0)m.order=Math.round(fo);m.since=kt(fin[0].end)}
      else{m.status="wait";m.label="대기"}
      out.push(m)}
     return{date:today,updated_at:new Date(now).toISOString().replace(/\.\d{3}Z$/,"Z"),machines:out}}
