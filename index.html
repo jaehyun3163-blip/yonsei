@@ -1499,20 +1499,20 @@ async function runInit(){
   RDB=stampDb(RDB);
   RDB.collection("edit_log").orderBy("at","desc").limit(1000).onSnapshot(function(sn){ELOG=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.at});edFill()},function(){});
   try{if(/[?&]view=1(&|$)/.test(location.search))RRO=true}catch(e){}
-  RDB.collection("run_cur").onSnapshot(function(sn){clearTimeout(tm);RLOAD=false;RUNMAP={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.start&&d.plan&&d.rate)RUNMAP[x.id]=Object.assign({},d,{_mi:MC.indexOf(x.id)})});RMODE="";runPaint();SMODE="";stopPaint()},function(){RLOAD=false;RMODE="";runPaint()});
+  RDB.collection("run_cur").onSnapshot(function(sn){clearTimeout(tm);RLOAD=false;RUNMAP={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.start&&d.plan&&d.rate)RUNMAP[x.id]=Object.assign({},d,{_mi:MC.indexOf(x.id)})});RMODE="";runPaint();SMODE="";stopPaint();asofPaint()},function(){RLOAD=false;RMODE="";runPaint()});
   try{DL=await claude.use("downloads");if(DL)["xls","xlsAll","runsX","appX","lpx","stx","gfx"].forEach(function(id){var e=$(id);if(e)e.style.display="inline-flex"})}catch(e){}
   RDB.collection("run_open").onSnapshot(function(sn){OPENMAP={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.st)OPENMAP[x.id]=d});SMODE="";runPaint();stopPaint()},function(){});
   RDB.collection("crew").onSnapshot(function(sn){CREW={};LEAD={};sn.docs.forEach(function(x){var d=x.data();if(!d||!d.date)return;if(x.id.indexOf("lead_")===0)LEAD[d.date]=d.lead||{};else if(d.mi!=null)CREW[x.id]=d});crewLive()},function(){});
   RDB.collection("daily_reports").onSnapshot(function(sn){DRP={};sn.docs.forEach(function(x){var d=x.data();if(d)DRP[x.id]=d})},function(){});
   RDB.collection("gift_events").onSnapshot(function(sn){GEV=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.date&&x.mi!=null});stopsLive()},function(){});
-  RDB.collection("stops_log").onSnapshot(function(sn){SLOGALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.sMs&&x.eMs});var xa0=$("xlsAll");if(xa0)xa0.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();stopsLive()},function(){});
+  RDB.collection("stops_log").onSnapshot(function(sn){SLOGALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.sMs&&x.eMs});var xa0=$("xlsAll");if(xa0)xa0.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();stopsLive();asofPaint()},function(){});
   RDB.collection("speed_log").onSnapshot(function(sn){SPDALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.sMs&&x.eMs&&x.spd>0});var xa1=$("xlsAll");if(xa1)xa1.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();if((location.hash||"#home")==="#home"||location.hash==="")route();runPaint()},function(){});
   RDB.collection("pm_log").onSnapshot(function(sn){PMD=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.from&&x.mi!=null});pmFill();cumPaint()},function(){});
   RDB.collection("part_stock").onSnapshot(function(sn){PST={};sn.docs.forEach(function(x){var d=x.data();if(d)PST[x.id]=d});stkFill()},function(){});
   RDB.collection("hours").onSnapshot(function(sn){HRS={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.base!=null)HRS[x.id]=d});cumPaint()},function(){});
   [["parts","parts"],["pchg","part_changes"],["pcyc","part_cycles"]].forEach(function(z){RDB.collection(z[1]).onSnapshot(function(sn){LPD[z[0]]=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})});lpFill();if(z[0]==="pchg")stkFill()},function(){})});
   RDB.collection("maint").onSnapshot(function(sn){MAINT=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.from&&x.to&&x.mi!=null});runPaint();lpFill()},function(){});
-  RDB.collection("runs_log").onSnapshot(function(sn){RUNSALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x&&x.start}).sort(function(a,b){return b.start-a.start});RMODE="";if((location.hash||"#home")==="#home"||location.hash==="")route();runPaint()},function(){});
+  RDB.collection("runs_log").onSnapshot(function(sn){RUNSALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x&&x.start}).sort(function(a,b){return b.start-a.start});asofPaint();RMODE="";if((location.hash||"#home")==="#home"||location.hash==="")route();runPaint()},function(){});
  }catch(e){clearTimeout(tm);RLOAD=false;RRO=true;RMODE="";runPaint();SMODE="";stopPaint()}
 }
 setInterval(function(){if(Object.keys(RUNMAP).length||Object.keys(OPENMAP).length)runPaint()},5000);
@@ -1692,7 +1692,7 @@ function runsXml(a){
  return x+'</sheetData></worksheet>';
 }
 async function runsSave(){
- var m=$("hmsg"),a=runsInPeriod();if(!DL||!a.length){if(m)m.textContent="저장할 생산 진행 기록이 없습니다.";return}
+ var m=$("hmsg"),a=runsInPeriod();if(!DL||!a.length){if(m)m.textContent=!RUNSALL.length?"이 화면에는 저장된 생산 진행 기록이 아직 없습니다. (GitHub와 아티팩트는 데이터가 따로 저장됩니다)":"선택한 기간("+$("prng").textContent+")에 생산 진행 기록이 없습니다. 위 기간을 '1년' 또는 '전체'로 바꾼 뒤 다시 눌러 주세요. (전체 "+RUNSALL.length+"건)";return}
  try{var b=buildXlsx([],{name:"생산 진행 기록",xml:runsXml(a)});var d=new Date();await DL.save({filename:"생산진행기록_"+d.getFullYear()+"."+p2(d.getMonth()+1)+"."+p2(d.getDate())+".xlsx",data:b});if(m)m.textContent="생산 진행 기록 "+a.length+"건을 저장했습니다. (선택한 기간)"}catch(e){if(m)m.textContent="저장하지 못했습니다."}
 }
 /* ---- 기존 정지현황 엑셀에 이어 붙이기 ---- */
@@ -1820,7 +1820,13 @@ document.addEventListener("click",function(e){var t=e.target.closest&&e.target.c
  else{if(!t.dataset.sure){t.dataset.sure=1;t.textContent="확인";return}RDB.doc("runs_log/"+t.getAttribute("data-rdel")).delete().catch(function(){})}});
 setInterval(function(){if(Object.keys(OPENMAP).length)stopPaint()},30000);
 
-$("asof").textContent="데이터 기준일 "+dstr(LAST);
+/* 데이터 기준일: 엑셀 과거 자료(LAST)와 포털 입력 기록 중 가장 최근 날짜. 진행 중인 생산이 있으면 오늘 */
+function asofPaint(){var e=$("asof");if(!e)return;var m=LAST,t=runYmd(Date.now());
+ RUNSALL.forEach(function(r){var d=runYmd(r.end||r.start);if(d>m)m=d});
+ SLOGALL.forEach(function(x){var d=num(x.date||"0");if(d>m)m=d});
+ if(Object.keys(RUNMAP).length&&t>m)m=t;if(m>t)m=t;
+ e.textContent="데이터 기준일 "+dstr(m);e.title="엑셀 과거 자료 "+dstr(LAST)+"까지 + 포털 입력 기록"}
+asofPaint();
 /* 24시간 입력: 오전/오후 없이 HH:MM으로 입력 */
 function t24(v){v=String(v||"").trim();if(!v)return"";var h,mi;
  if(v.indexOf(":")>=0){var p=v.split(":");if(p.length!==2||!/^\d{1,2}$/.test(p[0])||!/^\d{1,2}$/.test(p[1]))return null;h=+p[0];mi=+p[1]}
