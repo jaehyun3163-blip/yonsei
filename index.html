@@ -1615,11 +1615,12 @@ function eqNames(){var o={};ST.forEach(function(r){if(r.m===CM)o[r.e]=(o[r.e]||0
 function gv(id){var e=$(id);return e?e.value.trim():""}
 function sFields(pre){return{eq:gv(pre+"q").slice(0,40),loc:gv(pre+"l").slice(0,80),prob:gv(pre+"p").slice(0,160),act:gv(pre==="l"?"la2":pre+"a").slice(0,160),code:parseInt(gv(pre+"cd"),10)||0}}
 /* 정지 사유 코드 (OEE 일일기록 기준 시트). 코드를 고르지 않은 정지는 내용으로 추천 코드를 보여 줌 */
-var SCODE=[[1,"계획정지"],[2,"고장"],[3,"준비교체"],[4,"자재 대기"],[5,"순간정지"],[6,"기타"],[7,"상류(유액) 대기"],[8,"중간 CIP"]];
+var SCODE=[[1,"계획정지"],[2,"고장"],[3,"준비교체"],[4,"자재 대기"],[5,"순간정지"],[6,"기타"],[7,"상류(유액) 대기"],[8,"중간 CIP"],[9,"하류 대기 (적재로봇·자동화창고)"]];
 function scName(c){for(var k=0;k<SCODE.length;k++)if(SCODE[k][0]===c)return SCODE[k][1];return""}
 function scSug(x){var t=[x.eq,x.loc,x.prob,x.act].join(" ");
  if(/전처리|유액|성분|Dairy|탱크 ?부족|Tank ?부족|배합/i.test(t))return 7;
  if(/C\.?I\.?P/i.test(t))return 8;
+ if(/적재\s*로봇|제품\s*적재|자동화?\s*창고/.test(t))return 9;
  if(/품목\s*변경|규격\s*변경|제품\s*교체|품목\s*교체/.test(t))return 3;
  if(/자재|부자재|포장재|필름\s*부족|빨대\s*부족|대기\s*\(?자재/.test(t))return 4;
  if(/교육|휴식|회의|계획\s*정지/.test(t))return 1;
@@ -1971,8 +1972,13 @@ var WRP={},WRK={};
 async function wrKeys(X){if(WRK[X])return WRK[X];var bin=atob(WRT[X]),u=new Uint8Array(bin.length);for(var k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);
  var xml=await zipText(zipRead(u.buffer),"word/document.xml"),s={};(xml.match(/\[\[(K_)?[A-Z0-9_]+\]\]/g)||[]).forEach(function(t){s[t.replace(/^\[\[(K_)?/,"").replace(/\]\]$/,"")]=1});return WRK[X]=s}
 var WRTIME=/^(PR\d+_\d+|SL\d+_2|ST\d+_11|CIP\d+|PP\d+_1|SP\d+)$/;
-function wrIn(K,k,w,ph){if(!K[k])return'<td style="background:var(--line,#eee)"></td>';var tm=WRTIME.test(k);return'<td><input data-wk="'+k+'"'+(tm?' type="time"':' style="width:'+(w||70)+'px"')+(ph?' placeholder="'+esc(ph)+'"':'')+' maxlength="40"></td>'}
-function wrTbl(title,heads,rows){return'<h3 style="margin:14px 0 6px;font-size:14px">'+title+'</h3><div class="tw"><table><tr>'+heads.map(function(h){return'<th>'+h+'</th>'}).join("")+'</tr>'+rows.join("")+'</table></div>'}
+function wrIn(K,k,w,ph){if(!K[k])return'<td style="background:var(--line,#eee)"></td>';var tm=WRTIME.test(k),mw=tm?100:Math.max(90,(w||70)+40);return'<td data-mw="'+mw+'" style="min-width:'+mw+'px"><input data-wk="'+k+'"'+(tm?' type="time"':'')+(ph?' placeholder="'+esc(ph)+'"':'')+' maxlength="'+(tm?5:80)+'"></td>'}
+/* 길게 입력하면 칸이 글자 수만큼 넓어져 입력한 글자가 다 보이게 함 */
+function wrFit(i){if(!i||!i.dataset||i.dataset.wk==null||i.type==="time"||i.dataset.t24)return;var td=i.parentNode;if(!td||!td.dataset||!td.dataset.mw){i.style.setProperty("width",Math.max(180,Math.min(520,i.value.length*16+30))+"px","important");return}
+ var n=0;for(var c of i.value)n+=/[ㄱ-힣]/.test(c)?16:9;td.style.minWidth=Math.max(+td.dataset.mw,Math.min(520,n+30))+"px"}
+document.addEventListener("input",function(e){wrFit(e.target)});
+function wrTbl(title,heads,rows){return'<h3 style="margin:18px 0 8px;font-size:15px">'+title+'</h3><div class="tw"><table class="wrt"><tr>'+heads.map(function(h){return'<th>'+h+'</th>'}).join("")+'</tr>'+rows.join("")+'</table></div>'}
+var WRCSS='<style>#wrfm table.wrt td,#wrfm table.wrt th{padding:4px 5px;vertical-align:middle}#wrfm table.wrt th{white-space:nowrap;font-size:13px}#wrfm table.wrt td:first-child{white-space:nowrap;font-weight:600}#wrfm input[data-wk]{width:100%!important;min-height:44px;font-size:16px;padding:6px 10px;box-sizing:border-box;border-radius:8px}#wrfm label input[data-wk]{width:180px!important}#wrfm .wrsc{max-height:520px;overflow:auto}</style>';
 async function wrForm(){var el=$("wrfm");if(!el||CM<0)return;var X=MC[CM],K=await wrKeys(X),P=(X==="A"||X==="E"),h="",k,c,r,n,maxN;
  function has(re){return Object.keys(K).some(function(x){return re.test(x)})}
  if(P){
@@ -2002,11 +2008,11 @@ async function wrForm(){var el=$("wrfm");if(!el||CM<0)return;var X=MC[CM],K=awai
  if(K.PTOTB)r.push('<tr><td>합계</td>'+wrIn(K,"PTOTB",80)+'</tr>');
  h+=wrTbl("생산량 Box",["품명","Box"],r);
  h+='<div class="bar" style="margin-top:12px;align-items:flex-end">'+(K.AIR?'<label>에어 퍼지 <input data-wk="AIR" style="width:120px"></label>':'')+(K.REFILL?'<label>리필 시간 <input data-wk="REFILL" style="width:120px"></label>':'')+'<label>야간 운전자 <input data-wk="NT" style="width:140px"></label></div>';
- el.innerHTML=h;enh24(el);wrLoad(true)}
+ el.innerHTML=WRCSS+h.replace(/<div style="max-height:320px;overflow:auto">/g,'<div class="wrsc">');enh24(el);wrLoad(true)}
 function wrLoad(force){var el=$("wrfm");if(!el||CM<0||!el.innerHTML)return;if(!force&&el.contains(document.activeElement))return;
- var d=$("wrd").value,f=((WRP[d+"_"+MC[CM]]||{}).f)||{};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){if(!force&&i.dataset.dirty)return;i.value=f[i.dataset.wk]||"";i.dataset.dirty=""})}
+ var d=$("wrd").value,f=((WRP[d+"_"+MC[CM]]||{}).f)||{};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){if(!force&&i.dataset.dirty)return;i.value=f[i.dataset.wk]||"";i.dataset.dirty="";wrFit(i)})}
 async function wrSaveIn(){var el=$("wrfm"),m=$("wrmsg"),d=$("wrd").value;if(!el||!RDB||RRO||CM<0)return;if(!d){m.textContent="일자를 고르세요.";return}
- var f={};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){var v=i.value.trim().slice(0,40);if(v)f[i.dataset.wk]=v});
+ var f={};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){var v=i.value.trim().slice(0,80);if(v)f[i.dataset.wk]=v});
  var id=d+"_"+MC[CM],old=WRP[id];if(!old&&!Object.keys(f).length){m.textContent="입력한 값이 없습니다.";return}
  try{await RDB.doc("work_reports/"+id).set({date:d,mi:CM,mc:MC[CM]+"호기",f:f,ts:Date.now()});Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){i.dataset.dirty=""});m.textContent="입력한 칸을 저장했습니다. ("+Object.keys(f).length+"칸)"}
  catch(e){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
