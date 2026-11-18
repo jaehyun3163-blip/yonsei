@@ -805,6 +805,7 @@ svg .grid line{stroke:var(--line)}
 .g6 .mc{display:flex;flex-direction:column}
 .g6 .mc>dl{grid-template-columns:1fr auto}
 .clamp{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:anywhere;text-align:right}
+.ladj{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}.ladj[hidden]{display:none}.ladj input{flex:1 1 120px;min-width:0;min-height:38px;font-size:15px}.ladj button{min-height:38px}
 .g6 .mc .hitem{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
 .g6 .mc .hmt{margin-top:auto}
 .mtn b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -925,7 +926,7 @@ function hbars(rows,color,fmtv){
 function home(){
  var h=leadBar()+'<div class="bar" style="justify-content:flex-end;margin:0 0 8px"><button id="xlsAll" title="포털에서 입력한 전 호기 정지를 엑셀로 저장 (정지현황 양식)" style="display:none;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6"/><path d="m9.5 14.5 2.5 2.5 2.5-2.5"/></svg> 엑셀 저장 (전 호기 정지)</button><button id="runsX" style="display:none">생산 진행 기록 엑셀 저장</button><button id="appX" style="display:none" title="가지고 있는 정지현황 엑셀을 선택하면, 포털 입력 정지를 그 파일 뒤에 붙여 새 파일로 저장합니다">정지현황 파일에 이어 붙이기</button><input type="file" id="appF" accept=".xlsx" style="display:none"></div><div id="hmsg" class="note" style="margin:0 0 8px;text-align:right"></div><div class="lvbar" id="lvbar" hidden></div><div class="grid g6">',tot=agg(-1,PER.f,PER.t),ms=months(12),lab=ms.map(function(k){return(k%100)+"월"});
  MC.forEach(function(nm,i){var a=agg(i,PER.f,PER.t),xe=Math.min(a.x,a.s),p=pct(a.s-xe,a.run);
-  h+='<a class="card mc" href="#mc-'+nm.toLowerCase()+'" style="--mcol:'+cv(i)+'"><div class="nm"><span>'+nm+'호기<span class="badge hb" id="hbd'+i+'">생산 중</span></span><small>'+(a.nd?a.nd+"일 생산"+(a.pn?" · 포털 "+a.pn+"건":""):"생산 기록 없음")+'</small></div><div class="note hitem" id="hitem'+i+'" style="margin-top:4px;overflow-wrap:anywhere"></div><div class="note" id="hcrew'+i+'" style="margin-top:2px;white-space:pre-line;font-size:12px"></div><div class="live" id="hlive'+i+'" hidden></div><dl>'+
+  h+='<a class="card mc" href="#mc-'+nm.toLowerCase()+'" style="--mcol:'+cv(i)+'"><div class="nm"><span>'+nm+'호기<span class="badge hb" id="hbd'+i+'">생산 중</span></span><small>'+(a.nd?a.nd+"일 생산"+(a.pn?" · 포털 "+a.pn+"건":""):"생산 기록 없음")+'</small></div><div class="note hitem" id="hitem'+i+'" style="margin-top:4px;overflow-wrap:anywhere"></div><div class="note" id="hcrew'+i+'" style="margin-top:2px;white-space:pre-line;font-size:12px"></div><div class="live" id="hlive'+i+'" hidden></div><div class="ladj" id="hadj'+i+'" hidden><input type="number" inputmode="numeric" min="0" placeholder="현재 카운터 (누적 개수)" data-adj="'+i+'"><button type="button" data-adjsv="'+i+'">카운터 저장</button><span class="note" id="hadjm'+i+'"></span></div><dl>'+
   '<dt>생산량</dt><dd>'+fmt(a.q)+'</dd><dt>생산시간</dt><dd>'+hh(a.run)+'</dd><dt>정지시간</dt><dd>'+fmt(a.s)+'분</dd><dt>정지 비율 · 그외</dt><dd title="가동률에 반영되는 정지 (전처리·제품적재로봇 제외) '+fmt(a.s-xe)+'분">'+(a.run?ratioPill(p):"-")+'</dd>'+'<dt>정지 비율 · 전처리/로봇</dt><dd title="가동률에서 제외되는 정지 '+fmt(xe)+'분">'+pc1(xe,a.run)+'</dd>'+'<dt>속도 손실</dt><dd>'+(SPDM.indexOf(i)>=0?fmt(Math.round(a.l))+'분'+(a.lx>=.5?' (전처리 '+fmt(Math.round(a.lx))+'분 제외)':''):'-')+'</dd>'+'<dt>가동률 · 제외 후</dt><dd title="(생산시간 − 그외 정지 − 속도 손실) ÷ 생산시간. 전처리·제품적재로봇 정지와, 원인이 전처리(Tank 부족 등)인 속도 손실은 빼고 계산">'+(a.run>0?(Math.max(0,a.run-(a.s-xe)-(a.l-a.lx))/a.run*100).toFixed(1)+'%':'-')+'</dd>'+'<dt>가동률 · 전체 포함</dt><dd title="(생산시간 − 전체 정지 − 속도 손실) ÷ 생산시간">'+(a.run>0?(Math.max(0,a.run-a.s-a.l)/a.run*100).toFixed(1)+'%':'-')+'</dd>'+'<dt>누적 가동시간</dt><dd id="hcum'+i+'">-</dd><dt>다음 예방정비</dt><dd id="hpm'+i+'">-</dd><dt>생산 진행</dt><dd id="hrun'+i+'">-</dd></dl><div class="prog" style="height:8px;margin-top:8px"><i id="hbar'+i+'" style="width:0"></i></div><div class="note" id="hsub'+i+'" style="margin-top:4px;min-height:1.3em;text-align:right;white-space:pre-line"></div><div class="note hmt" id="hmt'+i+'" style="text-align:right;color:var(--warn)"></div></a>'});
  h+='</div>'+giftCard()+'<div class="grid g2" style="margin-top:12px"><div class="card"><h2>정지·정비 알림판</h2><div id="monA"></div></div><div class="card"><h2>지금 생산 중인 제품</h2><div id="monB"></div></div></div><div class="card" style="margin-top:12px"><h2>생산 진행 기록 (선택 기간)</h2><div id="hrl"></div></div><div class="grid g2" style="margin-top:12px">';
  var rows=MC.map(function(nm,i){return{t:nm+"호기",v:agg(i,PER.f,PER.t).q,c:cv(i)}});
@@ -1512,8 +1513,9 @@ function runPaint(){
    if(hm0.dataset.h!==mh){hm0.dataset.h=mh;hm0.innerHTML=mh}}
   var lv=$("hlive"+i0);if(lv){if(cc0){lv.hidden=false;lv.className="live"+(op?" stp":"");var nst=(rr.stops||[]).length;
    var e0=cc0.done?"계획 도달":(dkey(cc0.eta)===dkey(now)?hm(cc0.eta):clock(cc0.eta));
-   lv.innerHTML='<div class="lt">'+(op?"● 정지 중 · 실시간":"● 생산 중 · 실시간")+'</div><dl><dt>현재 생산량</dt><dd>'+fmt(Math.round(cc0.p))+' / '+fmt(rr.plan)+'</dd><dt>시작 → 예상 종료</dt><dd>'+(dkey(rr.start)===dkey(now)?hm(rr.start):clock(rr.start))+' → '+e0+'</dd><dt>시간당 CAPA</dt><dd>'+(cc0.has?fmt(Math.round(cc0.ar)):(cc0.net>=600000&&cc0.loss>60000?fmt(Math.round(cc0.p/(cc0.net/3600000)))+' <small class="note">추정</small>':'<small class="note">실적 보정에 카운터 입력 시 표시</small>'))+' <small class="note">/ 기준 '+fmt(rr.rate)+'</small></dd><dt>생산 / 정지</dt><dd>'+dur(cc0.net)+' / '+dur(cc0.stop)+(nst?" · "+nst+"회":"")+'</dd>'+(rr.recipe?'<dt>레시피</dt><dd>'+esc(rr.recipe)+'</dd>':'')+(cc0.loss>0?'<dt>속도 손실</dt><dd>'+dur(cc0.loss)+' 환산</dd>':'')+(rr.note?'<dt>특이사항</dt><dd class="clamp" title="'+esc(rr.note)+'">'+esc(rr.note)+'</dd>':'')+'</dl>';
+   lv.innerHTML='<div class="lt">'+(op?"● 정지 중 · 실시간":"● 생산 중 · 실시간")+'</div><dl><dt>현재 생산량</dt><dd>'+fmt(Math.round(cc0.p))+' / '+fmt(rr.plan)+'</dd><dt>시작 → 예상 종료</dt><dd>'+(dkey(rr.start)===dkey(now)?hm(rr.start):clock(rr.start))+' → '+e0+'</dd><dt>시간당 CAPA</dt><dd>'+((cc0.net+cc0.stop)>=600000?fmt(Math.round(cc0.p/((cc0.net+cc0.stop)/3600000)))+' <small class="note">정지 포함</small>':'<small class="note">시작 10분 후 표시</small>')+(cc0.has?' <small class="note">· 생산 중 '+fmt(Math.round(cc0.ar))+'</small>':'')+' <small class="note">/ 기준 '+fmt(rr.rate)+'</small></dd><dt>생산 / 정지</dt><dd>'+dur(cc0.net)+' / '+dur(cc0.stop)+(nst?" · "+nst+"회":"")+'</dd>'+(rr.recipe?'<dt>레시피</dt><dd>'+esc(rr.recipe)+'</dd>':'')+(cc0.loss>0?'<dt>속도 손실</dt><dd>'+dur(cc0.loss)+' 환산</dd>':'')+(rr.note?'<dt>특이사항</dt><dd class="clamp" title="'+esc(rr.note)+'">'+esc(rr.note)+'</dd>':'')+'</dl>';
    LV.run++;if(op)LV.stop++;LV.q+=cc0.p;LV.net+=cc0.net;LV.st+=cc0.stop}else{lv.hidden=true;lv.innerHTML=""}}
+  var aj0=$("hadj"+i0);if(aj0)aj0.hidden=!cc0||RRO||!RDB;
   if(!cc0&&mt)LV.mt++;
   hr.textContent=(op?"정지 중 · ":"")+m1;
   var cardEl=hr.closest("a.mc"),bd=$("hbd"+i0);if(cardEl){cardEl.classList.toggle("run",!!cc0);cardEl.classList.toggle("stp",!!(cc0&&op));var inM=!cc0&&!!mt;cardEl.classList.toggle("mt",inM);if(bd){bd.textContent=cc0?(op?"정지 중":"생산 중"):"정비 중";bd.classList.toggle("stop",!!(cc0&&op));bd.classList.toggle("maint",inM)}}
@@ -1639,7 +1641,7 @@ function runAddStop(a,b){
  if(!RUN||RRO||a<RUN.start)return Promise.resolve();
  var r=JSON.parse(JSON.stringify(RUN)),open=(r.stops||[]).filter(function(s){return s[1]==null});
  if(b==null){if(open.length)return Promise.resolve();r.stops=(r.stops||[]).concat([[a,null]])}
- else if(open.length){open[0][1]=b}
+ else if(open.length&&(open[0][0]===a||a===b)){open[0][1]=b}/* 진행 중인 정지 종료일 때만 닫고, 지난 정지를 늦게 넣은 것은 따로 더함 */
  else r.stops=(r.stops||[]).concat([[a,b]]);
  return rSave(r);
 }
@@ -2088,6 +2090,15 @@ async function stSave(){var m=$("wrmsg"),d=$("wrd")&&$("wrd").value;if(!m||CM<0)
   m.textContent="정지 현황을 저장했습니다. (정지 "+r.n+"건 · 합계 "+r.tot+"분)"+(r.n?"":" 이 날짜에는 정지 기록이 없습니다.")}
  catch(e){m.textContent="저장하지 못했습니다."+(e&&e.message?" ("+e.message+")":"")}}
 document.addEventListener("click",function(e){if(e.target&&e.target.id==="stgo")stSave()});
+/* 홈 카드에서 바로 카운터 입력 (실적 보정과 같은 방식으로 저장 → 실제 시간당 CAPA 계산) */
+async function cardAdj(i){var X=MC[i],inp=document.querySelector('[data-adj="'+i+'"]'),m=$("hadjm"+i);if(!inp||!RDB||RRO)return;
+ var v=+inp.value;if(inp.value===""||!(v>=0)){if(m)m.textContent="카운터 값을 넣으세요.";return}
+ var cur=RUNMAP[X];if(!cur||!cur.start){if(m)m.textContent="생산 중이 아닙니다.";return}
+ var r=JSON.parse(JSON.stringify(cur));delete r._mi;var ad={q:Math.round(v),at:Date.now()};r.adj=ad;r.adjs=(r.adjs||[]).concat([ad]).slice(-24);
+ try{await RDB.doc("run_cur/"+X).set(r);inp.value="";if(m)m.textContent=hm(ad.at)+" 저장됨"}catch(e){if(m)m.textContent="저장하지 못했습니다."}}
+document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var box=t.closest(".ladj");if(!box)return;e.preventDefault();e.stopPropagation();
+ if(t.dataset&&t.dataset.adjsv!=null)cardAdj(+t.dataset.adjsv);else if(t.tagName==="INPUT")t.focus()},true);
+document.addEventListener("keydown",function(e){var t=e.target;if(e.key==="Enter"&&t&&t.dataset&&t.dataset.adj!=null){e.preventDefault();cardAdj(+t.dataset.adj)}});
 async function wrSave(){var m=$("wrmsg"),d=$("wrd")&&$("wrd").value;if(!m||CM<0)return;if(!d){m.textContent="일자를 고르세요.";return}
  if(!DL){m.textContent="이 화면에서는 파일 저장을 쓸 수 없습니다.";return}
  needOld(num(d));m.textContent="만드는 중…";
