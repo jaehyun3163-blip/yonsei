@@ -2132,7 +2132,10 @@ function t24(v){v=String(v||"").trim();if(!v)return"";var h,mi;
  if(h>23||mi>59)return null;return p2(h)+":"+p2(mi)}
 function t24fix(el){
  el.addEventListener("input",function(){var d=el.value.replace(/[^\d:]/g,"").slice(0,5);if(d!==el.value)el.value=d});
- el.addEventListener("blur",function(){var r=t24(el.value);var v=r===null?"":r;if(v!==el.value){el.value=v;el.dispatchEvent(new Event("change",{bubbles:true}))}});
+ el.addEventListener("blur",function(){var r=t24(el.value);
+  /* 작업일보 칸은 인쇄용 글자라 24:30·25:10 같은 자정 넘은 시각도 그대로 둠 (지우지 않음) */
+  if(el.dataset&&el.dataset.wk!=null){var x=String(el.value||"").trim(),m=x.match(/^(\d{1,2}):?(\d{2})$/);if(r===null){if(m&&+m[1]<=35&&+m[2]<=59){r=p2(+m[1])+":"+m[2]}else return}}
+  var v=r===null?"":r;if(v!==el.value){el.value=v;el.dispatchEvent(new Event("change",{bubbles:true}))}});
 }
 function enh24(root){
  var q=(root.querySelectorAll?root:document).querySelectorAll('input[type="time"],input[type="datetime-local"]');
