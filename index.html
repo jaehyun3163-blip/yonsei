@@ -1954,10 +1954,21 @@ function wrData(i,d){
  v.TOT=runs.length?String(wrMin(tot)):"";
  v.RUNM=runs.length?String(Math.max(0,wrMin(tot)-(+v.SM||0))):"";
  v.AV=avn?(avw/avn).toFixed(1):"";
- var q=0;runs.slice(0,6).forEach(function(r,k){v["P"+(k+1)+"N"]=wrCut((r.item||"").trim(),8);v["P"+(k+1)+"Q"]=r.produced?fmt(Math.round(r.produced))+(r.cur?" (진행 중)":""):""});
+ var q=0,prods=wrProds(runs);prods.slice(0,6).forEach(function(r,k){v["P"+(k+1)+"N"]=wrCut((r.item||"").trim(),8);v["P"+(k+1)+"Q"]=r.qty?fmt(Math.round(r.qty))+(r.cur?" (진행 중)":""):""});
  runs.forEach(function(r){q+=+r.produced||0});v.PTOT=runs.length?fmt(Math.round(q)):"";
  v.NOTE=runs.map(function(r){return(r.note||"").trim()}).filter(Boolean).join(" / ");if(v.NOTE)v.NOTE="※ "+wrCut(v.NOTE,i===5?24:36);
- return{v:v,stops:stops,runs:runs}}
+ return{v:v,stops:stops,runs:runs,prods:prods}}
+/* 한 생산에 품목을 "/"로 여러 개 적은 경우(예: "곰곰 호두 435,000개/노브랜드 호두 95,396개") 작업일보 생산량 칸을 품목별 줄로 나눔.
+   개수는 적힌 수량 순서대로 채우고, 실제 생산량과의 차이는 마지막 품목에 반영 */
+function wrProds(runs){var out=[];runs.forEach(function(r){var it=String(r.item||"").trim(),ps=it.split("/").map(function(s){return s.trim()}).filter(Boolean),tot=+r.produced||0;
+  if(ps.length<2){out.push({item:it,qty:tot,cur:r.cur});return}
+  var left=tot;ps.forEach(function(p,j){var m=p.match(/^(.*?)\s*([\d,]+)\s*개\s*$/),nm=m?m[1].trim():p,want=m?+m[2].replace(/,/g,""):0,qn;
+   if(j===ps.length-1)qn=Math.max(0,left);else if(want){qn=Math.min(want,Math.max(0,left))}else qn=0;left-=qn;
+   out.push({item:nm||p,qty:qn,cur:r.cur&&qn>0&&(j===ps.length-1||left<=0)})})});return out}
+/* 직접 넣은 Box·개 칸에 "18136/3988"처럼 "/"로 여러 값을 적었으면 다음 줄들로 나눔 (다음 줄이 비어 있을 때만) */
+function wrSplitMan(f){f=Object.assign({},f||{});["B","Q","N"].forEach(function(c){for(var k=1;k<=6;k++){var x=f["P"+k+c];if(x==null||String(x).indexOf("/")<0)continue;var ps=String(x).split("/").map(function(s){return s.trim()});
+  if(c!=="N"&&!ps.every(function(s){return /^[\d,.]*$/.test(s)}))continue;var ok=true;for(var j=1;j<ps.length;j++)if(k+j>6||(f["P"+(k+j)+c]!=null&&f["P"+(k+j)+c]!==""))ok=false;if(!ok)continue;
+  for(j=0;j<ps.length;j++)f["P"+(k+j)+c]=ps[j]}});return f}
 function wrCut(s,n){s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s}
 /* 인쇄 1장 유지: 양식의 행 높이는 고정돼 있으므로, 칸보다 긴 값은 글자 크기를 줄여 한 줄에 들어가게 함 (WRW: 표시별 [칸 너비pt, 글자 크기pt, 같은 줄 다른 글자 수]) */
 function wrTxtW(s,fs){var w=0;for(var c of String(s)){w+=/[ᄀ-ᇿ㄰-㆏가-힣一-鿿]/.test(c)?fs*1.02:c===" "?fs*0.35:/[A-Z]/.test(c)?fs*0.72:fs*0.62}return w}
@@ -1994,7 +2005,7 @@ async function wrMake(i,d){
  var bin=atob(b64),u=new Uint8Array(bin.length);for(var k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);
  var z=zipRead(u.buffer),xml=await zipText(z,"word/document.xml"),D=wrData(i,d),v=D.v;
  var S=D.stops; /* 정지 상세는 '기계 정지 현황' 엑셀에 따로 적으므로 작업일보의 정지 줄은 비워 둠 */
- var man=((WRP[d+"_"+X]||{}).f)||{};Object.keys(man).forEach(function(k){if(man[k]!==""&&man[k]!=null&&(v[k]==null||v[k]===""||k==="NT"))v[k]=String(man[k])});
+ var man=wrSplitMan(((WRP[d+"_"+X]||{}).f)||{});Object.keys(man).forEach(function(k){if(man[k]!==""&&man[k]!=null&&(v[k]==null||v[k]===""||k==="NT"))v[k]=String(man[k])});
  /* 직접 넣은 제품 개수가 있으면 합계도 다시 계산 */
  if([1,2,3,4,5,6].some(function(k){return man["P"+k+"Q"]})){var sq=0,ok=false;[1,2,3,4,5,6].forEach(function(k){var n=parseFloat(String(v["P"+k+"Q"]||"").split("(")[0].replace(/[^\d.]/g,""));if(n>0){sq+=n;ok=true}});if(ok)v.PTOT=fmt(Math.round(sq))}
  Object.keys(v).forEach(function(k){if(WRNUM.test(k))v[k]=wrComma(v[k])});
@@ -2064,13 +2075,13 @@ async function wrForm(){var el=$("wrfm");if(!el||CM<0)return;var X=MC[CM],K=awai
  h+=wrTbl("Counter",["1회 1차","1회 2차","2회 1차","2회 2차","Total"],['<tr>'+["CN11","CN12","CN21","CN22","CNT"].map(function(x){return wrIn(K,x,80)}).join("")+'</tr>']);
  var D=wrData(CM,$("wrd").value||dkey(Date.now()));
  /* 양식에 있는 제품 줄은 모두 보여 줌. 포털에 생산 기록이 있으면 품명·개수는 자동, 없으면 품명도 직접 입력 */
- r=[];for(k=1;k<=6;k++)if(K["P"+k+"B"]){var rk=D.runs[k-1];r.push('<tr><td>'+k+'</td>'+(rk?'<td>'+esc(rk.item||"-")+' <small class="note">자동</small></td>':wrIn(K,"P"+k+"N",110,"품명"))+wrIn(K,"P"+k+"B",80)+(K["P"+k+"Q"]?(rk?'<td class="note">자동</td>':wrIn(K,"P"+k+"Q",80,"개")):'')+'</tr>')}
+ r=[];for(k=1;k<=6;k++)if(K["P"+k+"B"]){var rk=D.prods[k-1];r.push('<tr><td>'+k+'</td>'+(rk?'<td>'+esc(rk.item||"-")+' <small class="note">자동</small></td>':wrIn(K,"P"+k+"N",110,"품명"))+wrIn(K,"P"+k+"B",80)+(K["P"+k+"Q"]?(rk?'<td class="note">자동</td>':wrIn(K,"P"+k+"Q",80,"개")):'')+'</tr>')}
  if(K.PTOTB)r.push('<tr><td>합계</td><td></td>'+wrIn(K,"PTOTB",80)+(K.P1Q?'<td class="note">자동</td>':'')+'</tr>');
  h+=wrTbl("생산량 (포털에 생산 기록이 없는 제품은 품명부터 직접 입력)",["NO","품명","Box"].concat(K.P1Q?["개"]:[]),r);
  h+='<div class="bar" style="margin-top:12px;align-items:flex-end">'+(K.AIR?'<label>에어 퍼지 <input data-wk="AIR" style="width:120px"></label>':'')+(K.REFILL?'<label>리필 시간 <input data-wk="REFILL" style="width:120px"></label>':'')+'<label>야간 운전자 <input data-wk="NT" style="width:140px"></label></div>';
  el.innerHTML=WRCSS+h.replace(/<div style="max-height:320px;overflow:auto">/g,'<div class="wrsc">');enh24(el);wrLoad(true)}
 function wrLoad(force){var el=$("wrfm");if(!el||CM<0||!el.innerHTML)return;if(!force&&el.contains(document.activeElement))return;
- var d=$("wrd").value,f=((WRP[d+"_"+MC[CM]]||{}).f)||{};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){if(!force&&i.dataset.dirty)return;i.value=f[i.dataset.wk]||"";if(i.value&&WRNUM.test(i.dataset.wk))i.value=wrComma(i.value);i.dataset.dirty="";wrFit(i)})}
+ var d=$("wrd").value,f=wrSplitMan(((WRP[d+"_"+MC[CM]]||{}).f)||{});Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){if(!force&&i.dataset.dirty)return;i.value=f[i.dataset.wk]||"";if(i.value&&WRNUM.test(i.dataset.wk))i.value=wrComma(i.value);i.dataset.dirty="";wrFit(i)})}
 async function wrSaveIn(){var el=$("wrfm"),m=$("wrmsg"),d=$("wrd").value;if(!el||!RDB||RRO||CM<0)return;if(!d){m.textContent="일자를 고르세요.";return}
  var f={};Array.prototype.forEach.call(el.querySelectorAll("[data-wk]"),function(i){var v=i.value.trim().slice(0,80);if(v)f[i.dataset.wk]=v});
  var id=d+"_"+MC[CM],old=WRP[id];if(!old&&!Object.keys(f).length){m.textContent="입력한 값이 없습니다.";return}
