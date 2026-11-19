@@ -1954,7 +1954,7 @@ function wrData(i,d){
  v.TOT=runs.length?String(wrMin(tot)):"";
  v.RUNM=runs.length?String(Math.max(0,wrMin(tot)-(+v.SM||0))):"";
  v.AV=avn?(avw/avn).toFixed(1):"";
- var q=0,prods=wrProds(runs);prods.slice(0,6).forEach(function(r,k){v["P"+(k+1)+"N"]=wrCut((r.item||"").trim(),8);v["P"+(k+1)+"Q"]=r.qty?fmt(Math.round(r.qty))+(r.cur?" (진행 중)":""):""});
+ var q=0,prods=wrProds(runs);prods.slice(0,6).forEach(function(r,k){v["P"+(k+1)+"N"]=wrCut((r.item||"").trim(),24);/* 이름은 다 보이게 하고, 길면 글자 크기를 줄여 한 줄에 맞춤 */v["P"+(k+1)+"Q"]=r.qty?fmt(Math.round(r.qty))+(r.cur?" (진행 중)":""):""});
  runs.forEach(function(r){q+=+r.produced||0});v.PTOT=runs.length?fmt(Math.round(q)):"";
  v.NOTE=runs.map(function(r){return(r.note||"").trim()}).filter(Boolean).join(" / ");if(v.NOTE)v.NOTE="※ "+wrCut(v.NOTE,i===5?24:36);
  return{v:v,stops:stops,runs:runs,prods:prods}}
@@ -1977,7 +1977,7 @@ function wrShrink(xml,X,v){var W=(typeof WRW!=="undefined"&&WRW[X])||{},re=/\[\[
  for(var h=hits.length-1;h>=0;h--){var idx=hits[h][0],k=hits[h][1],s=v[k],inf=W[k];if(!inf||s==null||s==="")continue;
   var fs=inf[1],avail=(inf[0]-11-inf[2]*fs*(k==="ITEM"?0.6:0.9))*0.9,need=wrTxtW(s,fs);if(avail<8)continue;
   var ns=fs;if(need>avail)ns=Math.max(4,Math.floor(fs*avail/need*2)/2);
-  else if(!inf[2]){/* 칸에 이 값만 있으면 칸 너비·줄 높이 안에서 최대한 크게 */var hPt=wrRowH(xml,idx);if(hPt>0&&wrOnePara(xml,idx)){var big=Math.min(fs*avail/need,(hPt-1)/1.35,16);big=Math.floor(big*2)/2;if(big>fs)ns=big}}
+  else if(!inf[2]){/* 칸에 이 값만 있으면 칸 너비·줄 높이 안에서 최대한 크게 */var hPt=wrRowH(xml,idx);if(hPt>0&&wrOnePara(xml,idx)){var big=Math.min(fs*avail/need*0.85,(hPt-2)/1.75,fs+3,13);/* 대체 글꼴은 줄 높이가 커서 여유를 크게 둠 (잘림 방지) */big=Math.floor(big*2)/2;if(big>fs)ns=big}}
   if(ns===fs)continue;var hp=String(Math.round(ns*2));
   var rs=Math.max(xml.lastIndexOf("<w:r>",idx),xml.lastIndexOf("<w:r ",idx));if(rs<0)continue;
   var seg=xml.slice(rs,idx),n0=seg;
