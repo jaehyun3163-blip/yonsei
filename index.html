@@ -1587,7 +1587,8 @@ async function runInit(){
   RDB.collection("daily_reports").onSnapshot(function(sn){DRP={};sn.docs.forEach(function(x){var d=x.data();if(d)DRP[x.id]=d})},function(){});
   RDB.collection("gift_events").onSnapshot(function(sn){GEV=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.date&&x.mi!=null});stopsLive()},function(){});
   RDB.collection("stops_log").onSnapshot(function(sn){SLOGALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.sMs&&x.eMs});var xa0=$("xlsAll");if(xa0)xa0.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();stopsLive();asofPaint()},function(){});
-  RDB.collection("speed_log").onSnapshot(function(sn){SPDALL=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.sMs&&x.eMs&&x.spd>0});var xa1=$("xlsAll");if(xa1)xa1.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();if((location.hash||"#home")==="#home"||location.hash==="")route();runPaint()},function(){});
+  RDB.collection("speed_log").onSnapshot(function(sn){var spAll=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})});SPDALL=spAll.filter(function(x){return x.sMs&&x.eMs&&x.spd>0});
+   SPDOPEN={};spAll.forEach(function(x){if(x.open&&!x.eMs&&x.sMs&&x.spd>0&&x.mi!=null)SPDOPEN[x.mi]=x});var xa1=$("xlsAll");if(xa1)xa1.disabled=!(SLOGALL.length||SPDALL.length);stopPaint();if((location.hash||"#home")==="#home"||location.hash==="")route();runPaint()},function(){});
   RDB.collection("pm_log").onSnapshot(function(sn){PMD=sn.docs.map(function(x){return Object.assign({},x.data()||{},{_id:x.id})}).filter(function(x){return x.from&&x.mi!=null});pmFill();cumPaint()},function(){});
   RDB.collection("part_stock").onSnapshot(function(sn){PST={};sn.docs.forEach(function(x){var d=x.data();if(d)PST[x.id]=d});stkFill()},function(){});
   RDB.collection("hours").onSnapshot(function(sn){HRS={};sn.docs.forEach(function(x){var d=x.data();if(d&&d.base!=null)HRS[x.id]=d});cumPaint()},function(){});
@@ -1603,7 +1604,10 @@ var OPEN=null,SLOG=[],SMODE="",DL=null;
 var CM=-1,RUNMAP={},OPENMAP={},SLOGALL=[],RUNSALL=[];
 var SPC=["필링머신","전처리(Tank 부족 등)","기타"],spcL=function(mi){var n=mi===0?"CFA124-37":mi===4?"CFA1724-37":null;return n?[n].concat(SPC.slice(1)):SPC},spcN=function(c,mi){c=c||"필링머신";return(c==="필링머신"&&(mi===0||mi===4))?spcL(mi)[0]:c},SPDALL=[],BASE=24000,SPDS=[20000,16000,12000,8000,4000],SPDM=[0,4];
 function spdOv(x,a,b){var lo=Math.max(x.sMs,a),hi=Math.min(x.eMs,b);return hi>lo?(hi-lo)*(1-x.spd/(x.base||BASE)):0}
-function spdLossMs(mi,a,b,exo){var t=0;SPDALL.forEach(function(x){if(x.mi===mi&&(!exo||x.ex))t+=spdOv(x,a,b)});return t}
+var SPDOPEN={};
+function spdLossMs(mi,a,b,exo){var t=0;SPDALL.forEach(function(x){if(x.mi===mi&&(!exo||x.ex))t+=spdOv(x,a,b)});
+ /* 지금 속도를 낮춰 운전 중이면 시작~지금까지도 손실에 포함 */
+ var o=SPDOPEN[mi];if(o&&(!exo||o.ex))t+=spdOv(Object.assign({},o,{eMs:Date.now()}),a,b);return t}
 var EXRE=/전처리|제품적[재잭]로봇|^로봇트?$/;
 function isEx(n){return EXRE.test(String(n||"").replace(/\s+/g,""))}
 function pc1(v,run){return run>0?(v/run*100).toFixed(1)+"%":"-"}
@@ -1691,12 +1695,13 @@ function stopPaint(){
    (mode==="open"?'<div class="rbtn" style="margin-top:8px"><span class="badge stop">정지 중</span><b id="lel"></b><label class="note">종료 시각 직접 입력 <input type="time" id="lte"></label><button class="pri" id="lend">정지 종료</button></div>':'<div class="rbtn" style="margin-top:8px"><label class="note">시작 시각 직접 입력 <input type="time" id="lts"></label><button class="pri" id="lgo">지금 정지 시작</button><span class="note">시작 시각을 비우면 누른 시각이 시작 시각으로 기록됩니다.</span></div>'+
    '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)"><div style="font-weight:600;margin-bottom:6px">이미 멈췄다 다시 돌아갔다면 — 정지 시간(분)만 입력</div><div class="bar" style="margin:0"><label>정지 시간(분)<input type="number" id="kn" min="1" placeholder="예: 4" style="width:90px"></label><label>끝난 시각<input type="time" id="kt" title="비우면 지금"></label><label>설비<input id="kq" list="eql" style="width:130px"></label><label>위치<input id="kl" style="width:150px"></label><label>문제점<input id="kp" list="cauL" style="width:200px"></label><label>조치<input id="ka" style="width:150px"></label><label>코드<select id="kcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="kadd">정지 기록 추가</button></div><div class="note" style="margin-top:4px">끝난 시각을 비우면 지금 막 끝난 정지로 기록합니다. 예: 4분 입력 → 지금 기준 4분 전부터 지금까지.</div></div>');
   var man=mode==="ro"||mode==="load"?"":'<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:500">지난 정지 직접 입력 (시작·종료 시각)</summary><div class="bar" style="margin:10px 0 0"><label>일자<input type="date" id="md" value="'+dkey(Date.now())+'"></label><label>시작<input type="time" id="ms"></label><label>종료<input type="time" id="me"></label><label>설비<input id="mq" list="eql" style="width:130px"></label><label>위치<input id="ml" style="width:150px"></label><label>문제점<input id="mp" list="cauL" style="width:200px"></label><label>조치<input id="ma" style="width:150px"></label><label>코드<select id="mcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="madd">추가</button></div></details>';
-  var spb=(mode==="ro"||mode==="load"||SPDM.indexOf(CM)<0)?"":'<details style="margin-top:14px" open><summary style="cursor:pointer;font-weight:600">속도 조정 기록 (Tank 부족 등으로 속도를 낮춘 시간)</summary><div class="bar" style="margin:10px 0 0"><label>조정 속도<select id="pv">'+SPDS.map(function(v){return'<option value="'+v+'">'+fmt(v)+'/시간</option>'}).join("")+'</select></label><label>낮춰서 운전한 시간(분)<input type="number" id="pn" min="1" placeholder="예: 60" style="width:110px"></label><label>원인<select id="pc">'+spcL(CM).map(function(c){return'<option>'+c+'</option>'}).join("")+'</select></label><label>끝난 시각<input type="time" id="pt" title="비우면 지금"></label><button class="pri" id="padd">속도 조정 추가</button></div><div class="note" style="margin-top:4px">기준 속도 '+fmt(BASE)+'/시간. 손실 시간 = 운전 시간 × (1 − 조정 속도 ÷ '+fmt(BASE)+'). 예) 12,000으로 60분 → 30분 손실. 정지 시간과 별도로 집계되고 가동률에 반영됩니다. 끝난 시각을 비우면 지금 막 끝난 것으로 기록합니다.</div><div id="pmsg" class="note" style="margin-top:4px"></div></details>';
+  var spb=(mode==="ro"||mode==="load"||SPDM.indexOf(CM)<0)?"":'<details style="margin-top:14px" open><summary style="cursor:pointer;font-weight:600">속도 조정 기록 (Tank 부족 등으로 속도를 낮춘 시간)</summary><div class="bar" style="margin:10px 0 0"><label>조정 속도<select id="pv">'+SPDS.map(function(v){return'<option value="'+v+'">'+fmt(v)+'/시간</option>'}).join("")+'</select></label><label>시작 시각<input type="time" id="ps" title="넣으면 시작~끝(비우면 지금)까지 시간을 자동 계산"></label><label>낮춰서 운전한 시간(분)<input type="number" id="pn" min="1" placeholder="시작 시각 넣으면 자동" style="width:150px"></label><label>원인<select id="pc">'+spcL(CM).map(function(c){return'<option>'+c+'</option>'}).join("")+'</select></label><label>끝난 시각<input type="time" id="pt" title="비우면 지금"></label><button class="pri" id="padd">속도 조정 추가</button></div><div class="note" style="margin-top:4px">기준 속도 '+fmt(BASE)+'/시간. 손실 시간 = 운전 시간 × (1 − 조정 속도 ÷ '+fmt(BASE)+'). 예) 12,000으로 60분 → 30분 손실. 정지 시간과 별도로 집계되고 가동률에 반영됩니다. 끝난 시각을 비우면 지금 막 끝난 것으로 기록합니다. 시작 시각을 넣으면 운전 시간(분)은 시작~끝 시각으로 자동 계산됩니다.</div><div id="plive" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)"></div><div id="pmsg" class="note" style="margin-top:4px"></div></details>';
   body.innerHTML=dl+live+man+spb+(SPDM.indexOf(CM)>=0?'<div id="ptbl" style="margin-top:12px"></div>':'')+'<div id="smsg" class="note" style="margin-top:6px"></div><div id="stbl" style="margin-top:12px"></div>';
   if($("lgo"))$("lgo").onclick=liveStart;if($("lend"))$("lend").onclick=liveEnd;if($("madd"))$("madd").onclick=manualAdd;if($("kadd"))$("kadd").onclick=quickAdd;if($("padd"))$("padd").onclick=spdAdd;
   if(mode==="open"){var fm={lq:"eq",ll:"loc",lp:"prob",la2:"act"};Object.keys(fm).forEach(function(id){$(id).value=OPEN[fm[id]]||"";$(id).onchange=liveSave})}
  }
  if(mode==="open"&&$("lel"))$("lel").textContent=hm(OPEN.st)+" 시작 · "+dur(Date.now()-OPEN.st)+" 경과";
+ plivePaint();
  var rows=SLOG.slice().sort(function(a,b){return b.sMs-a.sMs}).filter(function(r){return(!STDF||r.date>=STDF)&&(!STDT||r.date<=STDT)}),tb=$("stbl");
  if(tb)tb.innerHTML='<div class="bar" style="margin:0 0 6px;align-items:flex-end"><label>기간 시작<input type="date" id="sdf" value="'+STDF+'"></label><label>기간 끝<input type="date" id="sdt" value="'+STDT+'"></label><button data-more="sdclr">전체 기간</button>'+(window.__fbAll&&!window.__fbAllDone?'<span class="note">최근 60일 기록을 보여 줍니다 · <a href="#" data-more="fball">이전 기록 모두 불러오기</a></span>':'')+'</div>'+(rows.length?'<div class="note" style="margin-bottom:4px">포털에 입력한 정지 '+rows.length+(STDF||STDT?'건 (선택한 기간)':'건')+'</div><div class="tw"><table><tr><th>일자</th><th>시작</th><th>종료</th><th class="n">분</th><th>설비</th><th>위치</th><th>문제점</th><th>조치</th><th>코드</th><th></th></tr>'+rows.slice(0,STSHOW).map(function(r){return'<tr><td>'+esc(r.date)+'</td><td>'+esc(r.st)+(r.sMs&&dkey(r.sMs)!==r.date?' <span class="note">익일</span>':'')+'</td><td>'+esc(r.en)+'</td><td class="n">'+r.min+'</td><td>'+esc(r.eq)+'</td><td>'+esc(r.loc)+'</td><td>'+esc(r.prob)+'</td><td>'+esc(r.act)+'</td><td>'+scSel(r)+'</td><td>'+who(r)+(RRO?"":'<button data-sedit="'+esc(r._id)+'">수정</button> <button data-sdel="'+esc(r._id)+'" title="삭제">삭제</button>')+'</td></tr>'}).join("")+'</table></div>'+moreBtn("st",Math.min(STSHOW,rows.length),rows.length):'<div class="note">'+(STDF||STDT?'선택한 기간에 입력한 정지가 없습니다.':'아직 입력한 정지가 없습니다.')+'</div>');
  var pt=$("ptbl");if(pt){var pr=SPDALL.filter(function(r){return r.mi===CM}).sort(function(a,b){return b.sMs-a.sMs}),tl=pr.reduce(function(a,r){return a+(r.loss||0)},0);
@@ -1704,12 +1709,31 @@ function stopPaint(){
  var xb=$("xls");if(xb)xb.disabled=!(SLOG.length||SPDALL.some(function(r){return r.mi===CM}));
 }
 function pRec(a,b,spd,old,cause){cause=cause||(old&&old.cause)||spcL(CM)[0];var m=Math.max(1,Math.round((b-a)/60000));return Object.assign({},old||{},{date:dkey(a),st:hm(a),en:hm(b),sMs:a,eMs:b,min:m,spd:spd,base:BASE,loss:m*(1-spd/BASE),mc:MC[CM]+"호기",mi:old&&old.mi!=null?old.mi:CM,cause:cause,ex:cause===SPC[1],ts:Date.now()})}
+/* ---- 지금 속도 낮춤 시작 / 종료 (정지 시작·종료와 같은 방식). 진행 중인 건은 speed_log/open_{호기} 에 두고, 종료하면 일반 속도 조정 기록으로 저장 ---- */
+function plivePaint(){var el=$("plive");if(!el)return;var o=SPDOPEN[CM],st=o?"open:"+o.sMs+":"+o.spd:"idle";
+ if(el.dataset.st!==st){el.dataset.st=st;
+  el.innerHTML=o?'<div class="rbtn"><span class="badge stop">속도 낮춤 중</span><b id="plel"></b><label class="note">종료 시각 직접 입력 <input type="time" id="pte"></label><button class="pri" id="pend">속도 낮춤 종료</button><button id="pcan">취소</button></div>'
+   :'<div class="rbtn"><button class="pri" id="pgo">지금 속도 낮춤 시작</button><span class="note">위의 조정 속도·원인으로 시작합니다. 시작 시각을 넣으면 그 시각부터, 비우면 누른 시각부터 셉니다. 원래 속도로 돌리면 속도 낮춤 종료를 누르세요.</span></div>';
+  enh24(el);if($("pgo"))$("pgo").onclick=spdStart;if($("pend"))$("pend").onclick=spdEnd;if($("pcan"))$("pcan").onclick=spdCancel}
+ if(o&&$("plel")){var lm=(Date.now()-o.sMs)/60000;$("plel").textContent=fmt(o.spd)+"/시간 · "+hm(o.sMs)+" 시작 · "+dur(Date.now()-o.sMs)+" 경과 · 손실 약 "+fmt(Math.round(lm*(1-o.spd/(o.base||BASE))))+"분"}}
+async function spdStart(){var m=$("pmsg");if(!RDB||RRO||CM<0||SPDOPEN[CM])return;var sp=+gv("pv"),cs=gv("pc")||spcL(CM)[0],ts=gv("ps"),now=Date.now(),a=now;
+ if(ts){var r24=t24(ts);if(!r24){m.textContent="시작 시각을 HH:MM 으로 입력하세요.";return}a=mkMs(dkey(now),r24);if(a>now+60000)a-=86400000;if(now-a>12*3600000){m.textContent="시작 시각은 12시간 이내로 넣으세요.";return}}
+ try{await RDB.doc("speed_log/open_"+MC[CM]).set({open:true,mi:CM,mc:MC[CM]+"호기",sMs:a,date:dkey(a),st:hm(a),spd:sp,base:BASE,cause:cs,ex:cs===SPC[1],ts:Date.now()});$("ps").value="";m.textContent=fmt(sp)+"/시간으로 속도 낮춤을 "+hm(a)+"부터 기록 중입니다."}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
+async function spdEnd(){var m=$("pmsg"),o=SPDOPEN[CM];if(!RDB||RRO||!o)return;var e=Date.now(),te=gv("pte");
+ if(te){var r24=t24(te);if(!r24){m.textContent="종료 시각을 HH:MM 으로 입력하세요.";return}var d=mkMs(dkey(o.sMs),r24);if(d<=o.sMs)d+=86400000;if(d>e+60000){m.textContent="종료 시각이 지금보다 늦습니다.";return}e=d}
+ if(e<=o.sMs){m.textContent="종료 시각이 시작 시각보다 늦어야 합니다.";return}
+ try{var r=pRec(o.sMs,e,o.spd,null,o.cause);await RDB.collection("speed_log").add(r);await RDB.doc("speed_log/open_"+MC[CM]).delete();m.textContent=fmt(o.spd)+"/시간으로 "+r.min+"분 운전 → 손실 "+(Math.round(r.loss*10)/10)+"분으로 기록했습니다. ("+hm(o.sMs)+" ~ "+hm(e)+")"}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
+async function spdCancel(){var o=SPDOPEN[CM];if(!RDB||RRO||!o)return;if(!confirm("진행 중인 속도 낮춤 기록을 지울까요? (기록되지 않습니다)"))return;try{await RDB.doc("speed_log/open_"+MC[CM]).delete();$("pmsg").textContent="취소했습니다."}catch(x){}}
+setInterval(function(){if(Object.keys(SPDOPEN).length)plivePaint()},30000);
 async function spdAdd(){
- var mn=Math.round(+gv("pn")),sp=+gv("pv"),tt=gv("pt"),cs=gv("pc")||spcL(CM)[0],m=$("pmsg");
- if(!(mn>0)){m.textContent="낮춰서 운전한 시간(분)을 입력하세요.";return}
+ var mn=Math.round(+gv("pn")),sp=+gv("pv"),tt=gv("pt"),ts=gv("ps"),cs=gv("pc")||spcL(CM)[0],m=$("pmsg");
  var e=Date.now();if(tt){e=mkMs(dkey(e),tt);if(e>Date.now()+60000)e-=86400000}
- var a=e-mn*60000;
- try{var r=pRec(a,e,sp,null,cs);await RDB.collection("speed_log").add(r);m.textContent=fmt(sp)+"/시간으로 "+mn+"분 운전 → 손실 "+(Math.round(r.loss*10)/10)+"분으로 기록했습니다. ("+hm(a)+" ~ "+hm(e)+")";$("pn").value="";$("pt").value=""}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
+ var a;
+ /* 시작 시각을 넣으면 시작~끝 시각(비우면 지금)으로 운전 시간을 자동 계산 */
+ if(ts){var r24=t24(ts);if(!r24){m.textContent="시작 시각을 HH:MM 으로 입력하세요.";return}a=mkMs(dkey(e),r24);if(a>=e)a-=86400000;mn=Math.round((e-a)/60000);
+  if(!(mn>0)||mn>12*60){m.textContent="시작 시각이 끝난 시각(비우면 지금)보다 앞서야 합니다. (12시간 이내)";return}}
+ else{if(!(mn>0)){m.textContent="낮춰서 운전한 시간(분) 또는 시작 시각을 입력하세요.";return}a=e-mn*60000}
+ try{var r=pRec(a,e,sp,null,cs);await RDB.collection("speed_log").add(r);m.textContent=fmt(sp)+"/시간으로 "+mn+"분 운전 → 손실 "+(Math.round(r.loss*10)/10)+"분으로 기록했습니다. ("+hm(a)+" ~ "+hm(e)+")";$("pn").value="";$("pt").value="";$("ps").value=""}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
 }
 function editSpd(id){
  var x=SPDALL.filter(function(r){return r._id===id})[0];if(!x||RRO)return;
