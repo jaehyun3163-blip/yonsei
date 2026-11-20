@@ -831,7 +831,7 @@ svg .grid line{stroke:var(--line)}
 <div class="bar" id="pbar">
  <label>기간
   <select id="pre">
-   <option value="td" selected>오늘</option><option value="m0">이번 달</option><option value="m1">지난 달</option><option value="m3">최근 3개월</option>
+   <option value="td" selected>오늘</option><option value="yd">어제</option><option value="m0">이번 달</option><option value="m1">지난 달</option><option value="m3">최근 3개월</option>
    <option value="y0">올해</option><option value="m12">최근 12개월</option><option value="all">전체 (2021~)</option><option value="cu">직접 지정</option>
   </select></label>
  <span id="cu" class="hide"><input type="date" id="d1" aria-label="시작일"> ~ <input type="date" id="d2" aria-label="종료일"></span>
@@ -865,6 +865,7 @@ function monthAdd(y,m,k){var t=y*12+(m-1)+k;return[Math.floor(t/12),t%12+1]}
 function setPer(){
  var v=$("pre").value,a,b;
  if(v==="td"){a=b=runYmd(Date.now())}
+ else if(v==="yd"){var y0=new Date();y0.setDate(y0.getDate()-1);a=b=runYmd(y0.getTime())}
  else if(v==="m0"){a=mkd(LY,LM,1);b=mkd(LY,LM,31)}
  else if(v==="m1"){var p=monthAdd(LY,LM,-1);a=mkd(p[0],p[1],1);b=mkd(p[0],p[1],31)}
  else if(v==="m3"){var p3=monthAdd(LY,LM,-2);a=mkd(p3[0],p3[1],1);b=mkd(LY,LM,31)}
