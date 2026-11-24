@@ -874,6 +874,8 @@ function setPer(){
  else if(v==="m12"){var p12=monthAdd(LY,LM,-11);a=mkd(p12[0],p12[1],1);b=mkd(LY,LM,31)}
  else if(v==="all"){a=20210101;b=mkd(LY,12,31)}
  else{a=$("d1").value?num($("d1").value):20210101;b=$("d2").value?num($("d2").value):LAST}
+ /* 조장 일자도 고른 기간을 따라감: 하루를 고르면 그날, 오늘이거나 여러 날이면 오늘 */
+ LEADD=a===b&&a!==runYmd(Date.now())&&a<runYmd(Date.now())?iso(a):"";
  PER.f=a;PER.t=b;needOld(a);
  $("cu").classList.toggle("hide",v!=="cu");
  $("prng").textContent=dstr(a)+" ~ "+dstr(Math.min(b,Math.max(LAST,runYmd(Date.now()))));
@@ -963,12 +965,17 @@ function moreBtn(k,shown,total){return shown>=total?'':'<div style="margin-top:6
 var LEAD={},LEADD="";
 function leadBar(){var d=LEADD||(LEADD=dkey(Date.now()));return'<div class="card" id="leadbar" style="margin-bottom:12px;padding:10px 14px"><div class="bar" style="margin:0;align-items:flex-end"><b style="align-self:center">조장</b><label>일자<input type="date" id="ldd" value="'+d+'"></label><label>오전 조장<input id="lda" maxlength="20" placeholder="이름" style="width:110px"'+(RRO?" disabled":"")+'></label><label>오후 조장<input id="ldp" maxlength="20" placeholder="이름" style="width:110px"'+(RRO?" disabled":"")+'></label>'+(RRO?'':'<button class="pri" id="ldsv">저장</button>')+'<span id="ldmsg" class="note"></span></div><div id="ldshow" style="margin-top:6px;font-size:13px"></div></div>'}
 function ldLine(d,t){var c=LEAD[d]||{},l=d.slice(5).replace("-","/");return(c.am||c.pm)?"<b>"+t+"("+l+") 조장</b> · 오전 <b>"+esc(c.am||"-")+"</b> · 오후 <b>"+esc(c.pm||"-")+"</b>":'<b>'+t+'('+l+') 조장</b> · <span class="note">입력된 이름이 없습니다</span>'}
-function ldPaint(){var e=$("ldshow");if(!e)return;var d=dkey(Date.now()),s=$("ldd")&&$("ldd").value;e.innerHTML=ldLine(d,"금일")+(s&&s!==d?"<br>"+ldLine(s,"선택일"):"")}
+function ldPaint(){var e=$("ldshow");if(!e)return;var d=dkey(Date.now()),s=$("ldd")&&$("ldd").value,h;
+ if(isLive())h=ldLine(d,"금일")+(s&&s!==d?"<br>"+ldLine(s,"선택일"):"");
+ else if(PER.f===PER.t){var o=iso(PER.f);h=ldLine(o,"해당일")+(s&&s!==o?"<br>"+ldLine(s,"선택일"):"")}
+ else{var f=iso(PER.f),t=iso(Math.min(PER.t,runYmd(Date.now()))),ks=Object.keys(LEAD).filter(function(k){return k>=f&&k<=t&&(LEAD[k].am||LEAD[k].pm)}).sort().reverse();
+  h=(s&&s!==d?ldLine(s,"선택일")+"<br>":"")+(ks.length?'<details'+(e.querySelector("details[open]")?" open":"")+'><summary style="cursor:pointer"><b>이 기간 조장</b> <span class="note">'+ks.length+'일 (눌러서 보기)</span></summary>'+ks.map(function(k){return'<div>'+k.slice(5).replace("-","/")+' · 오전 <b>'+esc(LEAD[k].am||"-")+'</b> · 오후 <b>'+esc(LEAD[k].pm||"-")+'</b></div>'}).join("")+'</details>':'<span class="note">이 기간에 입력된 조장이 없습니다</span>')}
+ if(e.dataset.h!==h){e.dataset.h=h;e.innerHTML=h}}
 function leadLoad(){var d=$("ldd");if(!d)return;ldPaint();var c=LEAD[d.value]||{};[["lda",c.am],["ldp",c.pm]].forEach(function(z){var e=$(z[0]);if(e&&!e.dataset.dirty&&document.activeElement!==e&&e.value!==(z[1]||""))e.value=z[1]||""})}
 async function leadSave(){var d=$("ldd").value,m=$("ldmsg");if(!d){m.textContent="일자를 입력하세요.";return}var v={am:$("lda").value.trim().slice(0,20),pm:$("ldp").value.trim().slice(0,20)},pv=LEAD[d]||{};
  if(!v.am&&!v.pm&&!pv.am&&!pv.pm){m.textContent="조장 이름을 입력한 뒤 저장하세요.";return}
  if(!v.am&&!v.pm&&!confirm(d+" 조장 이름을 모두 지울까요?"))return;
- try{await RDB.doc("crew/lead_"+d).set({date:d,kind:"lead",lead:v,ts:Date.now()});LEAD[d]=v;$("lda").dataset.dirty="";$("ldp").dataset.dirty="";ldPaint();m.textContent="저장했습니다."}catch(e){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
+ try{await RDB.doc("crew/lead_"+d).set({date:d,kind:"lead",lead:v,ts:Date.now()});LEAD[d]=v;$("lda").dataset.dirty="";$("ldp").dataset.dirty="";ldPaint();($("ldmsg")||m).textContent="저장했습니다."}catch(e){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}}
 var CREW={},CRN=[[2,1],[1,1],[1,1],[1,1],[2,1],[2,1]],CRD="",GCSHOW=15;
 function crId(d,i){return d+"_"+MC[i]}
 function crGet(d,i){return CREW[crId(d,i)]||null}
