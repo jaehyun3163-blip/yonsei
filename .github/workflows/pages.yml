@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: 데이터 파일 만들기
@@ -30,5 +29,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      - id: deployment
+      - name: 30초 기다리기
+        run: sleep 30
+      - name: 배포
+        id: deploy1
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      - name: 실패하면 60초 더 기다리기
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 60
+      - name: 다시 배포
+        if: steps.deploy1.outcome == 'failure'
         uses: actions/deploy-pages@v4
