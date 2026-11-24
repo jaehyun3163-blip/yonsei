@@ -1437,6 +1437,14 @@ function editBox(title,fields,save){
  var f0=$("ef0");if(f0)f0.focus();
 }
 function fixRunStops(mi,oa,ob,na,nb){var r=RUNMAP[MC[mi]];if(!r||!r.stops)return Promise.resolve();var c=JSON.parse(JSON.stringify(r)),k=c.stops.findIndex(function(x){return x[0]===oa&&x[1]===ob});if(k<0)return Promise.resolve();if(na==null)c.stops.splice(k,1);else c.stops[k]=[na,nb];return RDB.doc("run_cur/"+MC[mi]).set(c)}
+/* 끝난 생산의 정지 시간(stopMin)을 정지 기록 변경에 맞춰 고침. bef = 바뀌기 전 정지 목록, oldId = 빼야 할 기록, a~b = 새로 넣은 구간(없으면 null) */
+function unionMin(list,lo,hi){var v=list.map(function(x){return[Math.max(x.sMs,lo),Math.min(x.eMs,hi)]}).filter(function(p){return p[1]>p[0]}).sort(function(p,q){return p[0]-q[0]}),t=0,ce=-1;v.forEach(function(p){var s=Math.max(p[0],ce);if(p[1]>s){t+=p[1]-s;ce=p[1]}});return t/60000}
+async function doneDelta(mi,bef,oldId,a,b){
+ if(!RDB||RRO||mi==null)return 0;var ok=function(x){return x.mi===mi&&x.sMs&&x.eMs&&x.eMs>x.sMs},B=bef.filter(ok),A=B.filter(function(x){return x._id!==oldId});if(a!=null&&b!=null)A=A.concat([{mi:mi,sMs:a,eMs:b}]);
+ var n=0;for(var k=0;k<RUNSALL.length;k++){var r=RUNSALL[k];if(r.mi!==mi||!r.start||!r.end)continue;
+  var d=Math.round(unionMin(A,r.start,r.end))-Math.round(unionMin(B,r.start,r.end));if(!d)continue;
+  var c=Object.assign({},r);delete c._id;c.stopMin=Math.max(0,(+r.stopMin||0)+d);try{await RDB.doc("runs_log/"+r._id).set(c);n++}catch(e){}}
+ return n}
 function editRun(){
  if(!RUN||RRO)return;
  editBox("진행 중인 생산 수정",[{l:"제품",v:RUN.item||"",list:"rpl"},{l:"생산 시작",t:"datetime-local",v:localIn(RUN.start)},{l:"계획량",t:"number",v:RUN.plan},{l:"시간당 속도",t:"number",v:RUN.rate},{l:"특이사항",v:RUN.note||""}].concat(NITRO.indexOf(CM)>=0?[{l:"질소충진 레시피",opts:RCP,v:RUN.recipe||""}]:[]).concat(GFT.indexOf(CM)>=0?[{l:"선물포장 타입",opts:[""].concat(GTYM[CM]),v:RUN.gtype||""}]:[]),async function(v){
@@ -1462,7 +1470,7 @@ function editStop(id){
   var a=mkMs(v[0],v[1]),b=mkMs(v[0],v[2]);if(b<=a)b+=86400000;
   if(v[0]===x.date&&x.sMs&&x.st){var off=Math.round((x.sMs-mkMs(x.date,x.st))/86400000)*86400000;a+=off;b+=off}
   var n=Object.assign({},x);delete n._id;n.date=x.mi!=null?runDay(x.mi,a):dkey(a);n.st=hm(a);n.en=hm(b);n.sMs=a;n.eMs=b;n.min=Math.max(1,Math.round((b-a)/60000));n.eq=v[3].slice(0,40);n.loc=(v[4]||"-").slice(0,80);n.prob=v[5].slice(0,160);n.act=v[6].slice(0,160);n.code=parseInt(v[7],10)||0;
-  try{await RDB.doc("stops_log/"+id).set(n);if(x.mi!=null)await fixRunStops(x.mi,x.sMs,x.eMs,a,b)}catch(e){return"저장하지 못했습니다."}
+  try{var bef=SLOGALL.slice();await RDB.doc("stops_log/"+id).set(n);if(x.mi!=null){await fixRunStops(x.mi,x.sMs,x.eMs,a,b);await doneDelta(x.mi,bef,id,a,b)}}catch(e){return"저장하지 못했습니다."}
  });
 }
 function rItems(){var o={};PR.forEach(function(r){if(r.m===CM)o[D.I[r.i]]=(o[D.I[r.i]]||0)+1});return Object.keys(o).sort(function(a,b){return o[b]-o[a]}).slice(0,60)}
@@ -1675,16 +1683,24 @@ async function quickAdd(){
  var mn=Math.round(+gv("kn")),f=sFields("k"),tt=gv("kt"),m=$("smsg");
  if(!(mn>0)){m.textContent="정지 시간(분)을 입력하세요.";return}
  if(!f.eq){m.textContent="설비를 입력하세요.";return}
- var e=Date.now();if(tt){e=mkMs(dkey(e),tt);if(e>Date.now()+60000)e-=86400000}
- var a=e-mn*60000;
- try{await RDB.collection("stops_log").add(sRec(a,e,f));await runAddStop(a,e);m.textContent="정지 "+mn+"분을 기록했습니다. ("+hm(a)+" ~ "+hm(e)+")";["kn","kt","kq","kl","kp","ka"].forEach(function(i){$(i).value=""})}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
+ var e=Date.now(),td=dkey(e),kd=$("kd"),day=kd&&kd.dataset.touched?kd.value:td; /* 날짜를 직접 고르지 않았으면 오늘 */
+ if(kd&&kd.dataset.touched&&!day){m.textContent="일자를 입력하세요.";return}
+ if(day>td){m.textContent="앞으로 올 날짜에는 기록할 수 없습니다.";return}
+ if(day!==td){if(!tt){m.textContent="지난 날짜는 끝난 시각도 입력하세요.";return}e=mkMs(day,tt);if(!isFinite(e)){m.textContent="끝난 시각을 HH:MM 으로 입력하세요.";return}}
+ else if(tt){e=mkMs(td,tt);if(e>Date.now()+60000)e-=86400000}
+ var a=e-mn*60000,mi0=CM,bef=SLOGALL.slice();
+ try{await RDB.collection("stops_log").add(sRec(a,e,f));await runAddStop(a,e);var nd=await doneDelta(mi0,bef,null,a,e);m=$("smsg")||m;kd=$("kd")||kd; /* 생산 기록이 바뀌면 화면이 다시 그려지므로 새 칸을 다시 찾음 */
+  m.textContent="정지 "+mn+"분을 기록했습니다. ("+(day!==td?day.slice(5).replace("-","/")+" ":"")+hm(a)+" ~ "+hm(e)+")"+(nd?" · 종료한 생산의 정지 시간에도 반영했습니다.":"");["kn","kt","kq","kl","kp","ka"].forEach(function(i){$(i).value=""});if(kd){kd.value=td;kd.dataset.touched=""}}catch(x){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
 }
+document.addEventListener("input",function(ev){if(ev.target&&ev.target.id==="kd")ev.target.dataset.touched="1"});
 async function manualAdd(){
  var d=gv("md"),s=gv("ms"),e=gv("me"),f=sFields("m");
  if(!d||!s||!e){$("smsg").textContent="일자, 시작, 종료 시각을 입력하세요.";return}
  var a=mkMs(d,s),b=mkMs(d,e);if(b<=a)b+=86400000;
  if(!f.eq){$("smsg").textContent="설비를 입력하세요.";return}
- try{await RDB.collection("stops_log").add(sRec(a,b,f));await runAddStop(a,b);$("smsg").textContent="추가했습니다.";["mq","ml","mp","ma"].forEach(function(i){$(i).value=""})}catch(x){$("smsg").textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
+ if(!(b<=Date.now()+60000)){$("smsg").textContent="끝난 시각이 지금보다 늦습니다. 일자와 시각을 확인하세요.";return}
+ var mi0=CM,bef=SLOGALL.slice();
+ try{await RDB.collection("stops_log").add(sRec(a,b,f));await runAddStop(a,b);var nd=await doneDelta(mi0,bef,null,a,b);$("smsg").textContent="추가했습니다."+(nd?" 종료한 생산의 정지 시간에도 반영했습니다.":"");["mq","ml","mp","ma"].forEach(function(i){$(i).value=""})}catch(x){$("smsg").textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."}
 }
 function stopPaint(){
  ctx();var body=$("stopbody");if(!body)return;
@@ -1693,8 +1709,8 @@ function stopPaint(){
   var live=mode==="load"?'<div class="note">저장소에 연결 중…</div>':mode==="ro"?'<div class="note">읽기 전용입니다. 입력하려면 편집 권한이 필요합니다.</div>':
    '<div class="bar" style="margin:0"><label>설비<input id="lq" list="eql" style="width:130px"></label><label>위치<input id="ll" style="width:170px"></label><label>문제점<input id="lp" list="cauL" style="width:230px"></label><label>조치<input id="la2" style="width:170px"></label><label>코드<select id="lcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label></div>'+
    (mode==="open"?'<div class="rbtn" style="margin-top:8px"><span class="badge stop">정지 중</span><b id="lel"></b><label class="note">종료 시각 직접 입력 <input type="time" id="lte"></label><button class="pri" id="lend">정지 종료</button></div>':'<div class="rbtn" style="margin-top:8px"><label class="note">시작 시각 직접 입력 <input type="time" id="lts"></label><button class="pri" id="lgo">지금 정지 시작</button><span class="note">시작 시각을 비우면 누른 시각이 시작 시각으로 기록됩니다.</span></div>'+
-   '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)"><div style="font-weight:600;margin-bottom:6px">이미 멈췄다 다시 돌아갔다면 — 정지 시간(분)만 입력</div><div class="bar" style="margin:0"><label>정지 시간(분)<input type="number" id="kn" min="1" placeholder="예: 4" style="width:90px"></label><label>끝난 시각<input type="time" id="kt" title="비우면 지금"></label><label>설비<input id="kq" list="eql" style="width:130px"></label><label>위치<input id="kl" style="width:150px"></label><label>문제점<input id="kp" list="cauL" style="width:200px"></label><label>조치<input id="ka" style="width:150px"></label><label>코드<select id="kcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="kadd">정지 기록 추가</button></div><div class="note" style="margin-top:4px">끝난 시각을 비우면 지금 막 끝난 정지로 기록합니다. 예: 4분 입력 → 지금 기준 4분 전부터 지금까지.</div></div>');
-  var man=mode==="ro"||mode==="load"?"":'<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:500">지난 정지 직접 입력 (시작·종료 시각)</summary><div class="bar" style="margin:10px 0 0"><label>일자<input type="date" id="md" value="'+dkey(Date.now())+'"></label><label>시작<input type="time" id="ms"></label><label>종료<input type="time" id="me"></label><label>설비<input id="mq" list="eql" style="width:130px"></label><label>위치<input id="ml" style="width:150px"></label><label>문제점<input id="mp" list="cauL" style="width:200px"></label><label>조치<input id="ma" style="width:150px"></label><label>코드<select id="mcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="madd">추가</button></div></details>';
+   '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)"><div style="font-weight:600;margin-bottom:6px">이미 멈췄다 다시 돌아갔다면 — 정지 시간(분)만 입력</div><div class="bar" style="margin:0"><label>일자<input type="date" id="kd" value="'+dkey(Date.now())+'"></label><label>정지 시간(분)<input type="number" id="kn" min="1" placeholder="예: 4" style="width:90px"></label><label>끝난 시각<input type="time" id="kt" title="오늘이면 비워도 됨 (지금). 지난 날짜면 꼭 입력"></label><label>설비<input id="kq" list="eql" style="width:130px"></label><label>위치<input id="kl" style="width:150px"></label><label>문제점<input id="kp" list="cauL" style="width:200px"></label><label>조치<input id="ka" style="width:150px"></label><label>코드<select id="kcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="kadd">정지 기록 추가</button></div><div class="note" style="margin-top:4px">오늘 정지는 끝난 시각을 비우면 지금 막 끝난 정지로 기록합니다. 예: 4분 입력 → 지금 기준 4분 전부터 지금까지. <b>깜빡한 지난 날짜의 정지</b>는 일자와 끝난 시각을 넣으세요. 자정을 넘겨 일어난 정지는 실제 날짜(새벽이면 다음 날)로 넣으면 됩니다.</div></div>');
+  var man=mode==="ro"||mode==="load"?"":'<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">지난 정지 직접 입력 (일자 · 시작 · 종료 시각) — 입력을 깜빡했을 때</summary><div class="bar" style="margin:10px 0 0"><label>일자<input type="date" id="md" value="'+dkey(Date.now())+'"></label><label>시작<input type="time" id="ms"></label><label>종료<input type="time" id="me"></label><label>설비<input id="mq" list="eql" style="width:130px"></label><label>위치<input id="ml" style="width:150px"></label><label>문제점<input id="mp" list="cauL" style="width:200px"></label><label>조치<input id="ma" style="width:150px"></label><label>코드<select id="mcd">'+scOpts(0,0).replace("코드 선택","자동 추천")+'</select></label><button class="pri" id="madd">추가</button></div></details>';
   var spb=(mode==="ro"||mode==="load"||SPDM.indexOf(CM)<0)?"":'<details style="margin-top:14px" open><summary style="cursor:pointer;font-weight:600">속도 조정 기록 (Tank 부족 등으로 속도를 낮춘 시간)</summary><div class="bar" style="margin:10px 0 0"><label>조정 속도<select id="pv">'+SPDS.map(function(v){return'<option value="'+v+'">'+fmt(v)+'/시간</option>'}).join("")+'</select></label><label>시작 시각<input type="time" id="ps" title="넣으면 시작~끝(비우면 지금)까지 시간을 자동 계산"></label><label>낮춰서 운전한 시간(분)<input type="number" id="pn" min="1" placeholder="시작 시각 넣으면 자동" style="width:150px"></label><label>원인<select id="pc">'+spcL(CM).map(function(c){return'<option>'+c+'</option>'}).join("")+'</select></label><label>끝난 시각<input type="time" id="pt" title="비우면 지금"></label><button class="pri" id="padd">속도 조정 추가</button></div><div class="note" style="margin-top:4px">기준 속도 '+fmt(BASE)+'/시간. 손실 시간 = 운전 시간 × (1 − 조정 속도 ÷ '+fmt(BASE)+'). 예) 12,000으로 60분 → 30분 손실. 정지 시간과 별도로 집계되고 가동률에 반영됩니다. 끝난 시각을 비우면 지금 막 끝난 것으로 기록합니다. 시작 시각을 넣으면 운전 시간(분)은 시작~끝 시각으로 자동 계산됩니다.</div><div id="plive" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)"></div><div id="pmsg" class="note" style="margin-top:4px"></div></details>';
   body.innerHTML=dl+live+man+spb+(SPDM.indexOf(CM)>=0?'<div id="ptbl" style="margin-top:12px"></div>':'')+'<div id="smsg" class="note" style="margin-top:6px"></div><div id="stbl" style="margin-top:12px"></div>';
   if($("lgo"))$("lgo").onclick=liveStart;if($("lend"))$("lend").onclick=liveEnd;if($("madd"))$("madd").onclick=manualAdd;if($("kadd"))$("kadd").onclick=quickAdd;if($("padd"))$("padd").onclick=spdAdd;
@@ -1933,7 +1949,7 @@ document.addEventListener("click",function(e){if(e.target&&e.target.id==="gcsv")
    try{await RDB.doc("gift_events/"+gid).set(n)}catch(er){return"저장하지 못했습니다."}});return}
  var gd=e.target.closest&&e.target.closest("[data-gevdel]");if(gd&&RDB&&!RRO){if(!gd.dataset.sure){gd.dataset.sure=1;gd.textContent="확인";return}RDB.doc("gift_events/"+gd.getAttribute("data-gevdel")).delete().catch(function(){});return}
  if(e.target&&e.target.id==="gvadd"&&RDB&&!RRO){var m=$("gvmsg"),d=gv("gvd"),t=gv("gvt");if(!d){m.textContent="일자를 입력하세요.";return}var sMs=new Date(d+"T"+(t||"00:00")).getTime();RDB.collection("gift_events").add({date:d,st:t,mi:+gv("gvm"),mc:MC[+gv("gvm")]+"호기",eq:"선물포장기",loc:gv("gvl").slice(0,80),prob:gv("gvp").slice(0,160),act:gv("gva").slice(0,160),sMs:isNaN(sMs)?null:sMs,ts:Date.now()}).then(function(){m.textContent="기록했습니다.";$("gvl").value="";$("gvp").value="";$("gva").value=""}).catch(function(){m.textContent="저장하지 못했습니다. 쓰기 권한을 확인하세요."});return}
- var b=e.target.closest&&e.target.closest("[data-sdel]");if(b&&RDB&&!RRO){if(!b.dataset.sure){b.dataset.sure=1;b.textContent="확인";return}var sid=b.getAttribute("data-sdel"),sx=SLOGALL.filter(function(r){return r._id===sid})[0];RDB.doc("stops_log/"+sid).delete().then(function(){if(sx&&sx.mi!=null)return fixRunStops(sx.mi,sx.sMs,sx.eMs,null)}).catch(function(){})}});
+ var b=e.target.closest&&e.target.closest("[data-sdel]");if(b&&RDB&&!RRO){if(!b.dataset.sure){b.dataset.sure=1;b.textContent="확인";return}var sid=b.getAttribute("data-sdel"),sx=SLOGALL.filter(function(r){return r._id===sid})[0],bef1=SLOGALL.slice();RDB.doc("stops_log/"+sid).delete().then(function(){if(sx&&sx.mi!=null)return fixRunStops(sx.mi,sx.sMs,sx.eMs,null).then(function(){return doneDelta(sx.mi,bef1,sid,null,null)})}).catch(function(){})}});
 document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("[data-sedit],[data-redit],[data-rdel],[data-medit],[data-mdel],[data-pedit],[data-pdel]");if(!t||!RDB||RRO)return;
  if(t.hasAttribute("data-pedit"))return editSpd(t.getAttribute("data-pedit"));
  if(t.hasAttribute("data-pdel")){if(!t.dataset.sure){t.dataset.sure=1;t.textContent="확인";return}return RDB.doc("speed_log/"+t.getAttribute("data-pdel")).delete().catch(function(){})}
